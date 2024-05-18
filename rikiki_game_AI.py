@@ -18,8 +18,8 @@ class RikikiGame:
         self.trick = pydealer.Stack()
         self.scores = defaultdict(int)
         self.pli_scores = defaultdict(int)
-        # self.ai_agent = AIAgent(ai_player_index)
-        self.ai_agent = AIAgent(ai_player_index, state_size=state_size, action_size=action_size)
+        self.ai_agent = AIAgent(ai_player_index)
+        #self.ai_agent = AIAgent(ai_player_index, state_size=state_size, action_size=action_size)
         self.starting_player = 0
 
     def start_game(self):

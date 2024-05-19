@@ -3,6 +3,7 @@ from collections import defaultdict
 from tabulate import tabulate
 import random
 from ai_agent import AIAgent
+import torch
 
 class RikikiGame:
     def __init__(self, num_players, ai_player_index, conservative_player_index=0, starting_deck_size=2):
@@ -18,96 +19,18 @@ class RikikiGame:
         self.trick = pydealer.Stack()
         self.scores = defaultdict(int)
         self.pli_scores = defaultdict(int)
-        self.ai_agent = AIAgent(ai_player_index)
-        #self.ai_agent = AIAgent(ai_player_index, state_size=state_size, action_size=action_size)
         self.starting_player = 0
-
-    def start_game(self):
-        for round_number in range(11):
-            self.current_deck_size = self.starting_deck_size + round_number
-            self.deal_cards(round_number)
-            self.select_atout()
-            self.bidding_phase(round_number)
-            self.play_all_tricks()
-            self.calculate_scores()
-            self.print_scores()
-            self.print_overview_table()
-            self.reset_for_next_round()
-
+         
     def deal_cards(self, round_number):
         self.deck.shuffle()
         self.players = [self.deck.deal(self.current_deck_size) for _ in range(self.num_players)]
         self.bids = [None] * self.num_players
         self.pli_scores = defaultdict(int)
-        self.starting_player = round_number % self.num_players
+        self.starting_player = round_number % self.num_players #shift the starting player
 
     def select_atout(self):
         self.atout = self.deck.deal(1)[0]
-        print(f"Atout card: {self.atout}")
-
-    def bidding_phase(self, round_number):
-        starting_player = (self.starting_player + 1) % self.num_players
-        for i in range(self.num_players):
-            current_player = (starting_player + i) % self.num_players
-            self.get_bid(current_player)
-
-    def get_bid(self, player_num):
-        role = self.get_player_role(player_num)
-        print(f"{role} (Player {player_num + 1}), your hand:")
-        for card in self.players[player_num]:
-            print(card)
-        if player_num == self.conservative_player_index:
-            bid = 0
-        elif player_num == self.ai_player_index:
-            bid = self.ai_agent.make_bid(self.players[player_num], self.bids, self.current_deck_size, self.atout, self.num_players)
-        else:
-            while True:
-                bid = random.randint(0, self.current_deck_size)
-                if player_num == self.num_players - 1:  # Last player
-                    if sum(bid for bid in self.bids if bid is not None) + bid != self.current_deck_size:
-                        break
-                    else:
-                        continue
-                else:
-                    break
-        print(f"{role} (Player {player_num + 1}) bids: {bid}")
-        self.bids[player_num] = bid
-
-    def play_all_tricks(self):
-        for _ in range(self.current_deck_size):
-            self.play_trick()
-
-    def play_trick(self):
-        trick_cards = []
-        leading_suit = None
-
-        for player_num in range(self.num_players):
-            current_player = (self.starting_player + player_num) % self.num_players
-            role = self.get_player_role(current_player)
-            if current_player == self.ai_player_index:
-                card = self.ai_agent.play_card(self.players[current_player], leading_suit, self.atout)
-                self.players[current_player].get(str(card))
-            else:
-                if leading_suit:
-                    valid_cards = [card for card in self.players[current_player] if card.suit == leading_suit]
-                    if valid_cards:
-                        card = random.choice(valid_cards)
-                    else:
-                        card = random.choice(self.players[current_player])
-                else:
-                    card = random.choice(self.players[current_player])
-                self.players[current_player].get(str(card))
-
-            trick_cards.append((card, current_player))
-            if leading_suit is None:
-                leading_suit = card.suit
-
-            print(f"{role} (Player {current_player + 1}) plays: {card}")
-
-        winning_card, winning_player = self.determine_winner(trick_cards, leading_suit)
-        winning_role = self.get_player_role(winning_player)
-        print(f"{winning_role} (Player {winning_player + 1}) wins the trick with {winning_card}")
-        self.pli_scores[winning_player] += 1
+        print(f"Atout card: {self.atout}") 
 
     def determine_winner(self, trick_cards, leading_suit):
         winning_card = None
@@ -169,10 +92,42 @@ class RikikiGame:
         else:
             return "Random Player"
 
-if __name__ == "__main__":
-    num_players = 4  # Adjust as needed
-    ai_player_index = 3  # The last player is the AI agent
-    conservative_player_index = 0  # The first player is the conservative player
-    game = RikikiGame(num_players, ai_player_index, conservative_player_index)
-    game.start_game()
+    def update_game_state(self):
+        # general game state
+        game_state = {
+            "atout": self.atout,
+            "current_deck_size": self.current_deck_size,
+        }
+        # Count the number of cards with each rank in the AI player's hand
+        for rank, value in [('ace', 'Ace'), ('king', 'King'), ('queen', 'Queen')]:
+            game_state[f"num_{rank}s_in_hand"] = sum(card.value == value for card in self.players[self.ai_player_index])
+        # # Count atout cards in AI player's hand
+        game_state["num_atout_cards_in_hand"] = sum(card.suit == self.atout.suit for card in self.players[self.ai_player_index])
+        
+        for player_idx in range(self.num_players):
+            if player_idx != self.ai_player_index:
+                player_bid = self.bids[player_idx] if player_idx < len(self.bids) else 0
+                game_state[f"player_{player_idx + 1}_bid"] = player_bid
+        # Update the game state for the AI agent
+        #self.ai_agent.update_AI_game_state(game_state)
+        print('states updated in dict:', game_state)
+    
+        # Extract relevant game state information
+        num_aces = game_state.get("num_aces_in_hand", 0)
+        num_kings = game_state.get("num_kings_in_hand", 0)
+        num_queens = game_state.get("num_queens_in_hand", 0)
+        num_atout_cards = game_state.get("num_atout_cards_in_hand", 0)
+        current_deck_size = game_state.get("current_deck_size", 0)
+        player_1_bid = game_state.get("player_1_bid", 0) if game_state.get("player_1_bid") is not None else 0
+        player_2_bid = game_state.get("player_2_bid", 0) if game_state.get("player_2_bid") is not None else 0
+        player_3_bid = game_state.get("player_3_bid", 0) if game_state.get("player_3_bid") is not None else 0
+
+        # Encode game state information into a tensor
+        state_representation = torch.tensor([
+            num_aces, num_kings, num_queens, num_atout_cards, current_deck_size,
+            player_1_bid, player_2_bid, player_3_bid
+        ], dtype=torch.float)
+        return state_representation
+    
+
 

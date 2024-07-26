@@ -32,6 +32,7 @@ class RikikiGame:
         self.atout = self.deck.deal(1)[0]
         print(f"Atout card: {self.atout}") 
 
+    #determine the winner of the pli in this trick based on: -leading suit & atout 
     def determine_winner(self, trick_cards, leading_suit):
         winning_card = None
         winning_player = None
@@ -41,31 +42,50 @@ class RikikiGame:
                 winning_card = card
                 winning_player = player_num
             else:
+                #if the card suit is the atout suit 
                 if card.suit == self.atout.suit:
+                    #and the winning card is not atout or the new card is bigger than winning_card, new card wins
                     if winning_card.suit != self.atout.suit or card > winning_card:
                         winning_card = card
                         winning_player = player_num
+                #else: the card suit is the leading suit
                 elif card.suit == leading_suit:
+                    #and the winning card is not atout and card bigger than winning card, update the winning card
                     if winning_card.suit != self.atout.suit and card > winning_card:
                         winning_card = card
                         winning_player = player_num
-
         return winning_card, winning_player
 
+    #calculate the scores for the round: based on predicted pli_scores and actual
     def calculate_scores(self):
         for player_num in range(self.num_players):
             predicted = self.bids[player_num]
             actual = self.pli_scores[player_num]
-            if predicted == actual:
+            if predicted == actual: #if correct you win 5 points + 1 point per correct pli
                 self.scores[player_num] += 5 + actual
-            else:
+            else: #if not correct you loose the difference between true pli and predicted
                 self.scores[player_num] -= abs(predicted - actual)
 
+    #reset deck and trick for next round
+    def reset_for_next_round(self):
+        self.deck = pydealer.Deck()
+        self.trick = pydealer.Stack()
+
+    def get_player_role(self, player_num):
+        if player_num == self.conservative_player_index:
+            return "Conservative Player"
+        elif player_num == self.ai_player_index:
+            return "AI Player"
+        else:
+            return "Random Player"
+
+
+
+    #printing function
     def print_scores(self):
         for player_num in range(self.num_players):
             role = self.get_player_role(player_num)
             print(f"{role} (Player {player_num + 1}) score: {self.scores[player_num]}")
-
     def print_overview_table(self):
         table_data = []
         for player_num in range(self.num_players):
@@ -80,17 +100,7 @@ class RikikiGame:
         print("\nRound Overview:")
         print(tabulate(table_data, headers, tablefmt="grid"))
 
-    def reset_for_next_round(self):
-        self.deck = pydealer.Deck()
-        self.trick = pydealer.Stack()
-
-    def get_player_role(self, player_num):
-        if player_num == self.conservative_player_index:
-            return "Conservative Player"
-        elif player_num == self.ai_player_index:
-            return "AI Player"
-        else:
-            return "Random Player"
+    
 
     def update_game_state(self):
         # general game state
@@ -121,25 +131,11 @@ class RikikiGame:
         player_1_bid = game_state.get("player_1_bid", 0) if game_state.get("player_1_bid") is not None else 0
         player_2_bid = game_state.get("player_2_bid", 0) if game_state.get("player_2_bid") is not None else 0
         player_3_bid = game_state.get("player_3_bid", 0) if game_state.get("player_3_bid") is not None else 0
-        scores_AI_player = self.scores[self.ai_player_index] 
-        # Encode game state information into a tensor
+        #scores_AI_player = self.scores[self.ai_player_index] #removed from state_space to reduce complexity
+        # Encode game state information into a tensor  
         state_representation = torch.tensor([
             num_aces, num_kings, num_queens, num_atout_cards, current_deck_size,
-            player_1_bid, player_2_bid, player_3_bid, scores_AI_player
-        ], dtype=torch.float)
+            player_1_bid, player_2_bid, player_3_bid
+        ], dtype=torch.float)   #state is a 8x1 tensor, remove the score of AI player
         return state_representation
-    
-    def calc_round_reward(self):
-        # # Reward for winning the game
-        # if self.scores[self.ai_player_index] == max(self.scores.values()):
-        #     game_reward = 100  # Significant reward for winning the game
-        # else:
-        #     game_reward = 0
-        # Reward for winning rounds
-        round_reward = 5  # Small reward for winning rounds
-        # Penalty for inaccurate bids
-        bid_penalty = abs(self.bids[self.ai_player_index] - self.pli_scores[self.ai_player_index])
-        # Calculate total reward
-        reward = round_reward - bid_penalty
-        return reward
 

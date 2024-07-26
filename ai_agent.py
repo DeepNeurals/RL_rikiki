@@ -11,10 +11,6 @@ MAX_MEMORY = 100_000
 BATCH_SIZE = 1000
 LR = 0.001
 
-#states and actions
-NUM_STATES = 8
-NUM_ACTIONS = 1
-
 class AIAgent:
     def __init__(self, player_index, num_players):
         self.player_index = player_index
@@ -24,15 +20,16 @@ class AIAgent:
         self.epsilon = 0 # randomness
         self.gamma = 0.9 # discount rate
         self.memory = deque(maxlen=MAX_MEMORY) # popleft()
-        self.model = Linear_QNet(9, 256, 1)
+        self.model = Linear_QNet(8, 256, 1)
         self.q_trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
         #update this later
-        self.deck_size = 2
+        self.deck_size = 2 #the deck size starts at 2
     
     #receive the game-state from the main.py Game
-    def update_agent_state(self, game_state, deck_size):
+    def update_agent_state(self, game_state):
         self.agent_state = game_state
-        self.deck_size = deck_size
+        self.deck_size = game_state[4].item()
+        #print(' test check for deck size:', self.deck_size)
 
     ##FUNCION 1: that interferes with the Rikiki_game
     def make_bid(self):
@@ -44,22 +41,22 @@ class AIAgent:
             final_bid = move
         else:
             state0 = self.agent_state
-            print(type(state0))
+            print('type of the state:',type(state0))
             prediction = self.model(state0)  #forward pass
             move = torch.argmax(prediction).item()
             final_bid =  move
         return final_bid
     
-    ##FUNCION 2: that interferes with the Rikiki_game
-    def play_card(self, hand, leading_suit, atout):
-    # Ensure there are valid cards to play
-        if leading_suit:
-            valid_cards = [card for card in hand if card.suit == leading_suit]
-            if not valid_cards:
-                valid_cards = hand  # If no valid cards for leading suit, play any card
-        else:
-            valid_cards = hand
-        return random.choice(valid_cards)
+    # ##FUNCION 2: that interferes with the Rikiki_game
+    # def play_card(self, hand, leading_suit, atout):
+    # # Ensure there you play a card of the leading suit if you have it 
+    #     if leading_suit: #check if there is a leading suit 
+    #         valid_cards = [card for card in hand if card.suit == leading_suit]
+    #         if not valid_cards:
+    #             valid_cards = hand  # If no valid cards for leading suit, play any card
+    #     else:
+    #         valid_cards = hand
+    #     return random.choice(valid_cards)
     
     def train_short_memory(self, state, action, reward, next_state, done):
         self.q_trainer.train_step(state, action, reward, next_state, done)

@@ -121,13 +121,25 @@ class RikikiGame:
         player_1_bid = game_state.get("player_1_bid", 0) if game_state.get("player_1_bid") is not None else 0
         player_2_bid = game_state.get("player_2_bid", 0) if game_state.get("player_2_bid") is not None else 0
         player_3_bid = game_state.get("player_3_bid", 0) if game_state.get("player_3_bid") is not None else 0
-
+        scores_AI_player = self.scores[self.ai_player_index] 
         # Encode game state information into a tensor
         state_representation = torch.tensor([
             num_aces, num_kings, num_queens, num_atout_cards, current_deck_size,
-            player_1_bid, player_2_bid, player_3_bid
+            player_1_bid, player_2_bid, player_3_bid, scores_AI_player
         ], dtype=torch.float)
         return state_representation
     
-
+    def calc_round_reward(self):
+        # # Reward for winning the game
+        # if self.scores[self.ai_player_index] == max(self.scores.values()):
+        #     game_reward = 100  # Significant reward for winning the game
+        # else:
+        #     game_reward = 0
+        # Reward for winning rounds
+        round_reward = 5  # Small reward for winning rounds
+        # Penalty for inaccurate bids
+        bid_penalty = abs(self.bids[self.ai_player_index] - self.pli_scores[self.ai_player_index])
+        # Calculate total reward
+        reward = round_reward - bid_penalty
+        return reward
 

@@ -1,17 +1,39 @@
-import tensorflow as tf
+import numpy as np
 
-# Define the input shape
-input_shape = (7,)
+# Define the MDP
+num_states = 3
+num_actions = 2
 
-# Define the model
-model = tf.keras.Sequential([
-    tf.keras.layers.Dense(64, activation='relu', input_shape=input_shape),
-    tf.keras.layers.Dense(32, activation='relu'),
-    tf.keras.layers.Dense(1)  # Output layer with 1 neuron (predicts the number of bids)
+# Define the immediate rewards matrix R(s, a)
+# R[state, action]
+R = np.array([
+    [0, 0],
+    [1, 2],
+    [4, 0]
 ])
 
-# Compile the model
-model.compile(optimizer='adam', loss='mse')  # Use Mean Squared Error as the loss function
+# Define the transition probability matrix P(s' | s, a)
+# P[state, action, next_state]
+P = np.array([
+    [[0.5, 0.5, 0], [0, 1, 0], [0.8, 0.2, 0]],
+    [[0, 1, 0], [0.1, 0.8, 0.1], [0, 0, 1]],
+    [[1, 0, 0], [0, 1, 0], [0, 0.5, 0.5]]
+])
 
-# Display the model summary
-model.summary()
+# Define the discount factor
+gamma = 0.9
+
+# Initialize value function
+V = np.zeros(num_states)
+
+# Perform value iteration to solve the Bellman equation
+num_iterations = 100
+for _ in range(num_iterations):
+    new_V = np.zeros(num_states)
+    for s in range(num_states):
+        for a in range(num_actions):
+            new_V[s] = max(new_V[s], R[s, a] + gamma * np.sum(P[s, a] * V))
+    V = new_V
+
+print("Optimal Value Function:")
+print(V)

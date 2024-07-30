@@ -1,9 +1,10 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.nn.functional as F
 import numpy as np
 import random
-from nn_model import Linear_QNet, QTrainer
+from nn_model import QNetwork
 from collections import deque
 
 #hyperparameters
@@ -12,18 +13,21 @@ BATCH_SIZE = 1000
 LR = 0.001
 
 class AIAgent:
-    def __init__(self, player_index, num_players):
+    def __init__(self, player_index, num_players, learning_rate=0.001, gamma=0.99):
         self.player_index = player_index
         self.num_players = num_players
         self.agent_state = None
         self.n_games = 0
-        self.epsilon = 0 # randomness
-        self.gamma = 0.9 # discount rate
-        self.memory = deque(maxlen=MAX_MEMORY) # popleft()
-        self.model = Linear_QNet(8, 256, 1)
-        self.q_trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
-        #update this later
+        self.model = QNetwork()
+        self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate)
+        self.gamma = gamma
+        self.criterion = nn.MSELoss()
+
+        #for checking condition bid
+        self.sum_bids = 0
+        self.position_bidders = 0
         self.deck_size = 2 #the deck size starts at 2
+
     
     #receive the game-state from the main.py Game
     def update_agent_state(self, game_state):
@@ -33,35 +37,39 @@ class AIAgent:
 
     ##FUNCION 1: that interferes with the Rikiki_game
     def make_bid(self):
-        # random moves: tradeoff exploration / exploitation
-        self.epsilon = 80 - self.n_games
-        final_bid = 0
-        if random.randint(0, 200) < self.epsilon:
-            move = random.randint(0, self.deck_size)
-            final_bid = move
-        else:
-            state0 = self.agent_state
-            print('type of the state:',type(state0))
-            prediction = self.model(state0)  #forward pass
-            move = torch.argmax(prediction).item()
-            final_bid =  move
-        return final_bid
-    
-    # ##FUNCION 2: that interferes with the Rikiki_game
-    # def play_card(self, hand, leading_suit, atout):
-    # # Ensure there you play a card of the leading suit if you have it 
-    #     if leading_suit: #check if there is a leading suit 
-    #         valid_cards = [card for card in hand if card.suit == leading_suit]
-    #         if not valid_cards:
-    #             valid_cards = hand  # If no valid cards for leading suit, play any card
-    #     else:
-    #         valid_cards = hand
-    #     return random.choice(valid_cards)
-    
-    def train_short_memory(self, state, action, reward, next_state, done):
-        self.q_trainer.train_step(state, action, reward, next_state, done)
-    
-    #remember function used for DQL 
-    def remember(self, state, action, reward, next_state, done):
-        self.memory.append((state, action, reward, next_state, done)) # popleft if MAX_MEMORY is reached
+        x = self.agent_state #last state information we have
+        print(f"Given this last state: {x} the agents make the following bid")
 
+        if self.position_bidders != 4: #you are not last, you can bid whatever you want
+            prediction = self.model(x)  #forward pass
+            bid = torch.argmax(prediction).item()
+        else:
+            while True:
+                prediction = self.model(x)  #forward pass
+                bid = torch.argmax(prediction).item()
+                if bid + self.sum_bids != self.deck_size:
+                    break
+                else:
+                    continue
+        return bid
+    
+
+    def update(self, state, action, reward, next_state, done):
+        """Update the Q-values based on experience"""
+        # Compute the target
+        with torch.no_grad():
+            target = reward
+            if not done:
+                next_q_values = self.model(next_state)
+                target += self.gamma * torch.max(next_q_values)
+        
+        # Compute the current Q-value
+        q_values = self.model(state)
+        print('q_values:', q_values)
+        q_value = q_values[action]
+
+        # Compute loss and update model
+        loss = self.criterion(q_value, target)
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()

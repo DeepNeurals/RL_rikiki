@@ -5,11 +5,38 @@ import random
 from ai_agent import AIAgent
 import torch
 
+###GAME RELATED STUFF####
+#create CustomCard class
+class CustomCard(pydealer.Card):
+    def __init__(self, number, suit, custom_value=None):
+        super().__init__(number, suit)
+        self.custom_value = custom_value if custom_value is not None else self.default_value()
+
+    def default_value(self):
+        # Define default values for cards if no custom value is provided
+        value_map = {
+            '2': 2, '3': 3, '4': 4, '5': 5, '6': 6,
+            '7': 7, '8': 8, '9': 9, '10': 10,
+            'Jack': 11, 'Queen': 12, 'King': 13, 'Ace': 14
+        }
+        return value_map.get(self.value, 0)
+    
+#create a Custom Deck
+def create_custom_deck():
+    deck = pydealer.Deck()
+    custom_deck = [CustomCard(card.value, card.suit) for card in deck]
+    return custom_deck
+
+custom_deck = create_custom_deck()
+
+
 class RikikiGame:
-    def __init__(self, num_players, ai_player_index, conservative_player_index=0, starting_deck_size=2):
+    def __init__(self, num_players, ai_player_index, conservative_player_index, BOB_player_index, ALICE_player_index, starting_deck_size=2):
         self.num_players = num_players
         self.ai_player_index = ai_player_index
         self.conservative_player_index = conservative_player_index
+        self.BOB_player_index = BOB_player_index
+        self.ALICE_player_index = ALICE_player_index
         self.starting_deck_size = starting_deck_size
         self.current_deck_size = starting_deck_size
         self.deck = pydealer.Deck()
@@ -19,15 +46,20 @@ class RikikiGame:
         self.trick = pydealer.Stack()
         self.scores = defaultdict(int)
         self.pli_scores = defaultdict(int)
+        self.rewards = defaultdict(int)
         self.starting_player = 0
          
     def deal_cards(self, round_number):
         self.deck.shuffle()
-        self.players = [self.deck.deal(self.current_deck_size) for _ in range(self.num_players)]
+        self.players = []
+        for _ in range(self.num_players):
+            dealt_cards = self.deck.deal(self.current_deck_size)
+            player_hand = [CustomCard(card.value, card.suit) for card in dealt_cards]
+            self.players.append(player_hand)
         self.bids = [None] * self.num_players
         self.pli_scores = defaultdict(int)
-        self.starting_player = round_number % self.num_players #shift the starting player
-
+        self.starting_player = round_number % self.num_players
+    
     def select_atout(self):
         self.atout = self.deck.deal(1)[0]
         print(f"Atout card: {self.atout}") 
@@ -63,8 +95,10 @@ class RikikiGame:
             actual = self.pli_scores[player_num]
             if predicted == actual: #if correct you win 5 points + 1 point per correct pli
                 self.scores[player_num] += 5 + actual
+                self.rewards[player_num] = 5
             else: #if not correct you loose the difference between true pli and predicted
                 self.scores[player_num] -= abs(predicted - actual)
+                self.rewards[player_num] = -abs(predicted-actual)
 
     #reset deck and trick for next round
     def reset_for_next_round(self):
@@ -73,9 +107,13 @@ class RikikiGame:
 
     def get_player_role(self, player_num):
         if player_num == self.conservative_player_index:
-            return "Conservative Player"
+            return "JOE Conservative Player"
         elif player_num == self.ai_player_index:
             return "AI Player"
+        elif player_num == self.BOB_player_index:
+            return "BOB liberal bidder"
+        elif player_num == self.ALICE_player_index:
+            return "Alice random bidder"
         else:
             return "Random Player"
 
@@ -93,10 +131,11 @@ class RikikiGame:
                 f"{self.get_player_role(player_num)} (Player {player_num + 1})",
                 self.bids[player_num],
                 self.pli_scores[player_num],
+                self.rewards[player_num],
                 self.scores[player_num]
             ]
             table_data.append(row)
-        headers = ["Player", "Bid", "Actual Tricks", "Score"]
+        headers = ["Player", "Bid", "Actual Tricks","Reward", "Score"]
         print("\nRound Overview:")
         print(tabulate(table_data, headers, tablefmt="grid"))
 
@@ -120,7 +159,7 @@ class RikikiGame:
                 game_state[f"player_{player_idx + 1}_bid"] = player_bid
         # Update the game state for the AI agent
         #self.ai_agent.update_AI_game_state(game_state)
-        print('states updated in dict:', game_state)
+        #print('states were updated in dict:', game_state)
     
         # Extract relevant game state information
         num_aces = game_state.get("num_aces_in_hand", 0)
@@ -128,9 +167,16 @@ class RikikiGame:
         num_queens = game_state.get("num_queens_in_hand", 0)
         num_atout_cards = game_state.get("num_atout_cards_in_hand", 0)
         current_deck_size = game_state.get("current_deck_size", 0)
-        player_1_bid = game_state.get("player_1_bid", 0) if game_state.get("player_1_bid") is not None else 0
-        player_2_bid = game_state.get("player_2_bid", 0) if game_state.get("player_2_bid") is not None else 0
-        player_3_bid = game_state.get("player_3_bid", 0) if game_state.get("player_3_bid") is not None else 0
+        player_1_bid = game_state.get("player_1_bid")
+        player_1_bid = -1 if player_1_bid is None else player_1_bid
+        player_2_bid = game_state.get("player_2_bid")
+        player_2_bid = -1 if player_2_bid is None else player_2_bid
+        player_3_bid = game_state.get("player_3_bid")
+        player_3_bid = -1 if player_3_bid is None else player_3_bid
+
+        # player_1_bid = game_state.get("player_1_bid", 0) if game_state.get("player_1_bid") is not None else -1
+        # player_2_bid = game_state.get("player_2_bid", 0) if game_state.get("player_2_bid") is not None else -1
+        # player_3_bid = game_state.get("player_3_bid", 0) if game_state.get("player_3_bid") is not None else -1
         #scores_AI_player = self.scores[self.ai_player_index] #removed from state_space to reduce complexity
         # Encode game state information into a tensor  
         state_representation = torch.tensor([

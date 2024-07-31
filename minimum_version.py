@@ -272,7 +272,7 @@ if __name__ == "__main__":
     #hyperparameters 
     MAX_MEMORY = 100_000; BATCH_SIZE = 1000; LR = 0.001
     #global parameters
-    NUMBER_GAMES = 5000; TOTAL_ROUNDS=3
+    NUMBER_GAMES = 100; TOTAL_ROUNDS=3
     #game parameters 
     num_players = 4  # Adjust as needed
     #Starting Player's order

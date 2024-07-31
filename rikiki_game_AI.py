@@ -94,11 +94,11 @@ class RikikiGame:
             predicted = self.bids[player_num]
             actual = self.pli_scores[player_num]
             if predicted == actual: #if correct you win 5 points + 1 point per correct pli
-                self.scores[player_num] += 5 + actual
-                self.rewards[player_num] = 5
+                self.scores[player_num] += max(5, 5 * predicted) + actual
+                self.rewards[player_num] = max(5, 5 * predicted)
             else: #if not correct you loose the difference between true pli and predicted
-                self.scores[player_num] -= abs(predicted - actual)
-                self.rewards[player_num] = -abs(predicted-actual)
+                self.scores[player_num] -= (abs(predicted - actual))*2
+                self.rewards[player_num] = -abs(predicted-actual)*2
 
     #reset deck and trick for next round
     def reset_for_next_round(self):

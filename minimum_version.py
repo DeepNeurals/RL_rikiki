@@ -183,23 +183,12 @@ class Training:
         self.game.pli_scores[winning_player_index] += 1
 
 
-    def train_long_memory(self):
-        if len(self.memory) > BATCH_SIZE:
-            mini_sample = random.sample(self.memory, BATCH_SIZE) # list of tuples
-        else:
-            mini_sample = self.memory
-
-        states, actions, rewards, next_states, dones = zip(*mini_sample)
-        self.trainer.train_step(states, actions, rewards, next_states, dones)
-        #for state, action, reward, nexrt_state, done in mini_sample:
-        #    self.trainer.train_step(state, action, reward, next_state, done)
-
-
     # Train One-full episode
     def trainer(self):
         #initiliasation of counters
         n_games = 0 
         accumulated_rewards = []
+        list_of_actions = []
         total_reward = 0
 
         while n_games<NUMBER_GAMES: 
@@ -249,30 +238,62 @@ class Training:
 
                 print('--------ROUND PLAYED------------')
 
+            # Save the model every 10 episodes (or at your desired interval)
+            #if NUMBER_GAMES % 10 == 0:
+                #self.ai_agent.save_model(self.ai_agent.model, f'model_checkpoint_episode_{NUMBER_GAMES}.pth')
+            
             accumulated_rewards.append(total_reward)
+            list_of_actions.append(self.AI_action)
             n_games += 1
             print('n_games played:', n_games)
         print(f"This many episodes were played {NUMBER_GAMES}")
+        #print(list_of_actions)
 
 
-        import matplotlib.pyplot as plt
-        # Plotting the rewards
-        plt.figure(figsize=(12, 6))
-        plt.plot(accumulated_rewards, label='Episode Reward')
-        plt.xlabel('Episode')
-        plt.ylabel('Total Reward')
-        plt.title('Rewards over Time')
-        plt.legend()
-        plt.grid(True)
+       # Counting the occurrences of each action
+        action_counts = np.bincount(list_of_actions)
+
+
+        # Creating a single figure with three subplots
+        fig, axs = plt.subplots(3, 1, figsize=(12, 18))
+
+        # First subplot: Rewards over Time
+        axs[0].plot(accumulated_rewards, label='Episode Reward')
+        axs[0].set_xlabel('Episode')
+        axs[0].set_ylabel('Total Reward')
+        axs[0].set_title('Rewards over Time')
+        axs[0].legend()
+        axs[0].grid(True)
+
+        # Second subplot: Occurrences of Each Action
+        axs[1].bar(range(len(action_counts)), action_counts, color='blue')
+        axs[1].set_xlabel('Action')
+        axs[1].set_ylabel('Occurrences')
+        axs[1].set_title('Occurrences of Each Action')
+        axs[1].set_xticks(range(len(action_counts)))
+        axs[1].set_xticklabels([f'Action {i}' for i in range(len(action_counts))])
+        axs[1].grid(axis='y')
+
+        # Third subplot: Loss Curve
+        axs[2].plot(self.ai_agent.losses, label='Training Loss')
+        axs[2].set_xlabel('Training Steps')
+        axs[2].set_ylabel('Loss')
+        axs[2].set_title('Loss Curve')
+        axs[2].legend()
+        axs[2].grid(True)
+
+        # Adjust layout to prevent overlap
+        plt.tight_layout()
         plt.show()
+
 
 
 
 if __name__ == "__main__":
     #hyperparameters 
-    MAX_MEMORY = 100_000; BATCH_SIZE = 1000; LR = 0.001
+    LR = 0.010 #0.010 
     #global parameters
-    NUMBER_GAMES = 100; TOTAL_ROUNDS=3
+    NUMBER_GAMES = 5000; TOTAL_ROUNDS=3 #actually here the number of games are equal to number of rounds since a game has 1 round. Total rounds= number of ticks per round
     #game parameters 
     num_players = 4  # Adjust as needed
     #Starting Player's order
@@ -283,7 +304,7 @@ if __name__ == "__main__":
     # Create game instance: initialises all attributes
     game = RikikiGame(num_players, ai_player_index, conservative_player_index, BOB_player_index, ALICE_player_index, starting_deck_size=3) #only play rounds of 3 cards
     # #create an ai_agent instance of class AIAgent
-    ai_agent = AIAgent(ai_player_index, num_players)
+    ai_agent = AIAgent(ai_player_index, num_players, LR)
     #start one game
     trainer = Training(game, ai_agent)
     trainer.trainer()

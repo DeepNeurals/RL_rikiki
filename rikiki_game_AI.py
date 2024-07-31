@@ -97,9 +97,9 @@ class RikikiGame:
                 self.scores[player_num] += max(5, 5 * predicted) + actual
                 self.rewards[player_num] = max(5, 5 * predicted)
             else: #if not correct you loose the difference between true pli and predicted
-                self.scores[player_num] -= (abs(predicted - actual))*2
-                self.rewards[player_num] = -abs(predicted-actual)*2
-
+                self.scores[player_num] -= (abs(predicted - actual))*2 #penalising the errors
+                self.rewards[player_num] = -abs(predicted-actual)*2  # penalising the errors
+ 
     #reset deck and trick for next round
     def reset_for_next_round(self):
         self.deck = pydealer.Deck()

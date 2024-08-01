@@ -8,12 +8,13 @@ from nn_model import QNetwork
 from collections import deque
 
 class AIAgent:
-    def __init__(self, player_index, num_players, learning_rate, gamma=0.99, epsilon=0.1):
+    def __init__(self, player_index, num_players, learning_rate, deck_size, gamma=0.99, epsilon=0.1):
         self.player_index = player_index
         self.num_players = num_players
         self.agent_state = None
         self.n_games = 0
-        self.model = QNetwork()
+        self.deck_size = deck_size
+        self.model = QNetwork(self.deck_size)
         self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate)
         self.gamma = gamma
         self.criterion = nn.MSELoss()
@@ -24,7 +25,7 @@ class AIAgent:
         #for checking condition bid
         self.sum_bids = 0
         self.position_bidders = 0
-        self.deck_size = 2 #the deck size starts at 2
+        
 
     
     #receive the game-state from the main.py Game
@@ -44,7 +45,7 @@ class AIAgent:
         if self.position_bidders != 4:  # You are not last, you can bid whatever you want
             # ε-greedy action selection
             if random.random() < self.epsilon:  # With probability ε, explore
-                bid = random.randint(0, 3)  # Assuming there are 5 possible actions (0 to 4)
+                bid = random.randint(0, self.deck_size)  # Assuming there are 5 possible actions (0 to 4)
             else:  # With probability 1 - ε, exploit
                 prediction = self.model(x)  # Forward pass
                 bid = torch.argmax(prediction).item()

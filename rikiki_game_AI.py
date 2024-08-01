@@ -31,7 +31,7 @@ custom_deck = create_custom_deck()
 
 
 class RikikiGame:
-    def __init__(self, num_players, ai_player_index, conservative_player_index, BOB_player_index, ALICE_player_index, starting_deck_size=2):
+    def __init__(self, num_players, ai_player_index, conservative_player_index, BOB_player_index, ALICE_player_index, starting_deck_size):
         self.num_players = num_players
         self.ai_player_index = ai_player_index
         self.conservative_player_index = conservative_player_index

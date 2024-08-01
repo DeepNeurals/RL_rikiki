@@ -6,6 +6,7 @@ import random
 import torch
 import matplotlib.pyplot as plt
 import numpy as np
+#from collections import defaultdict
 
 
 
@@ -21,6 +22,7 @@ class Training:
         self.AI_reward  = 0
         self.done = 0
         self.counter_of_past_bidders = 0 #initialise with zero
+        self.total_reward = 0
 
     def bidding_phase(self):
         starting_player = (self.game.starting_player + 1) % self.game.num_players #wrap the 4 players from 0-3. 
@@ -98,17 +100,6 @@ class Training:
         self.game.bids[player_num] = bid
 
     
-    # def win_card(self, trick_cards, leading_suit):
-    #     #what is the highest atout
-    #     atout_cards = [card for card in trick_cards if card.suit == self.game.atout.suit]
-    #     leading_cards = [card for card in trick_cards if card.suit == leading_suit]
-    #     if atout_cards:
-    #         #print('some atout card were played')
-    #         winning_card = max(atout_cards, key=lambda x: x.custom_value)
-    #     else:
-    #         #print('highest leading suit wins')
-    #         winning_card = max(leading_cards, key=lambda x: x.custom_value)
-    #     return winning_card
     def win_card(self, trick_cards, leading_suit):
         # Separate cards into atout and leading suit groups
         atout_cards = [(card, player_role) for card, player_role in trick_cards if card.suit == self.game.atout.suit]
@@ -123,6 +114,19 @@ class Training:
 
         return winning_card, winning_player_role
 
+    def assign_points(self, leadership_points):
+        list_points  =  list(leadership_points.values())
+        max_point = max(list_points)
+        index_player = list_points.index(max_point)
+        # print('Type of self.game.scores:', type(leadership_points))
+        # print('Content of self.game.scores:', leadership_points)
+        # print('leadership points values:', list(leadership_points.values()))
+        # print('max points values:', max(list(leadership_points.values())))
+        # print('index of player', index_player)
+        if index_player ==3:
+            return 100
+        else:
+            return 0
 
 
     def play_all_tricks(self): #play all tricks in the current round
@@ -181,98 +185,154 @@ class Training:
 
         #update the pli score of the winning player
         self.game.pli_scores[winning_player_index] += 1
+    
+    def play_round(self, round_number):
+        self.game.current_deck_size = self.game.starting_deck_size
+        self.game.deal_cards(round_number)
+        self.game.select_atout()
+        #Update the atout information and player' s card to the state// in case AI bid first
+        #self.states = self.game.update_game_state() #not necessary since done when starting bidding phase
+
+        #get the bids from the 4 players
+        self.bidding_phase()  #in between one of the players the AI makes it bid, model is updated here
+        #play one full round
+        self.play_all_tricks()  
+        #calculate the scores after one full round
+        self.game.calculate_scores()   #after this moment we know the reward
+
+        #print the results
+        #self.game.print_scores()
+        self.game.print_overview_table()
+
+        #store for next round optimisation the state of this round
+        self.state_old = self.states
+        #print('print the rewards for the 4 players:', self.game.rewards[3])
+
+        #these are the action and reward to update the model
+        self.AI_action = self.AI_bid  #is good
+        self.AI_reward = self.game.rewards[3] #here we are gonna refer to a very small reward in function of how good it predicts
+
+        #you need to store here the true bids
+        #print('these are the actual scores:', self.game.pli_scores[3])
+        self.AI_actual = self.game.pli_scores[3]
+        #reset the game cards for next round
+        self.game.reset_for_next_round()
+        #We need to feed (state, action, reward, next_state) to the update function
+        self.ai_agent.update_agent_state(self.states)
+        self.total_reward += self.AI_reward #store the reward of the AI 
+        print(f"--------ROUND {round_number} PLAYED------------")
+
 
 
     # Train One-full episode
     def trainer(self):
-        #initiliasation of counters
-        n_games = 0 
+        n_episodes = 0 
         accumulated_rewards = []
         list_of_actions = []
+        list_actual = []
         total_reward = 0
+        score_over_episodes = []
 
-        while n_games<NUMBER_GAMES: 
+        while n_episodes<NUMBER_EPISODES:
+            print(f"Start of episode {n_episodes}")
+            n_games_played = 0 #initialisation of game counter
+            while n_games_played<NUMBER_GAMES: 
+                #here we want to play 4 rounds
+                #total_reward = 0
+                for round_number in range(TOTAL_ROUNDS): 
+                    self.play_round(round_number)
+                    # #ROUND LEVEL:
+                    # #self.game.current_deck_size = self.game.starting_deck_size + round_number
+                    # #only for minimum version -- IMPORTANT CHANGE ---
+                    # self.game.current_deck_size = self.game.starting_deck_size
+                    # self.game.deal_cards(round_number)
+                    # self.game.select_atout()
+                    # #Update the atout information and player' s card to the state// in case AI bid first
+                    # #self.states = self.game.update_game_state() #not necessary since done when starting bidding phase
 
-            #we start here with no information about the state
+                    # #get the bids from the 4 players
+                    # self.bidding_phase()  #in between one of the players the AI makes it bid, model is updated here
+                    # #play one full round
+                    # self.play_all_tricks()  
+                    # #calculate the scores after one full round
+                    # self.game.calculate_scores()   #after this moment we know the reward
 
-            #during the bidding phase we get info about the state
-            #we derive an action
+                    # #print the results
+                    # #self.game.print_scores()
+                    # self.game.print_overview_table()
 
-            #we derive the next_state at the next bidding phase
+                    # #store for next round optimisation the state of this round
+                    # self.state_old = self.states
+                    # #print('print the rewards for the 4 players:', self.game.rewards[3])
 
-            for round_number in range(TOTAL_ROUNDS-2): #the minus 2 is there such that we play 5 games of only 1 round
-                #print('round_number:', round_number)
-                #define the actual game round params
-                #self.game.current_deck_size = self.game.starting_deck_size + round_number
-                #only fortotal_reward minimum version -- IMPORTANT CHANGE ---
-                self.game.current_deck_size = self.game.starting_deck_size
-                self.game.deal_cards(round_number)
-                self.game.select_atout()
-                #Update the atout information and player' s card to the state// in case AI bid first
-                #self.states = self.game.update_game_state() #not necessary since done when starting bidding phase
+                    # #these are the action and reward to update the model
+                    # self.AI_action = self.AI_bid  #is good
+                    # self.AI_reward = self.game.rewards[3] #here we are gonna refer to a very small reward in function of how good it predicts
 
-                #get the bids from the 4 players
-                self.bidding_phase()  #in between one of the players the AI makes it bid, model is updated here
-                #play one full round
-                self.play_all_tricks()  
-                #calculate the scores after one full round
-                self.game.calculate_scores()   #after this moment we know the reward
+                    # #you need to store here the true bids
+                    # #print('these are the actual scores:', self.game.pli_scores[3])
+                    # self.AI_actual = self.game.pli_scores[3]
+                    # #reset the game cards for next round
+                    # self.game.reset_for_next_round()
+                    # #We need to feed (state, action, reward, next_state) to the update function
+                    # self.ai_agent.update_agent_state(self.states)
+                    # total_reward += self.AI_reward #store the reward of the AI 
+                    # print(f"--------ROUND {round_number} PLAYED------------")
+                
+                #GAME LEVEL:
+                # SAVING THE MODEL:
+                #if NUMBER_GAMES % 10 == 0:
+                    #self.ai_agent.save_model(self.ai_agent.model, f'model_checkpoint_episode_{NUMBER_GAMES}.pth')
+                #at the end of every round:
+                accumulated_rewards.append(self.total_reward) 
+                list_of_actions.append(self.AI_action)
+                list_actual.append(self.AI_actual)
+                #Determine a winner of the game in function of the leadership positions
+                big_reward = self.assign_points(self.game.scores)
+                self.AI_reward += big_reward
+                print(f"End of game number {n_games_played}, started with game zero")
+                n_games_played += 1
 
-                #print the results
-                #self.game.print_scores()
-                self.game.print_overview_table()
 
-                #store for next round optimisation the state of this round
-                self.state_old = self.states
-                #print('print the rewards for the 4 players:', self.game.rewards[3])
-                self.AI_action = self.AI_bid
-                self.AI_reward = self.game.rewards[3]
 
-                #reset the game cards for next round
-                self.game.reset_for_next_round()
-
-                #We need to feed (state, action, reward, next_state) to the update function
-                self.ai_agent.update_agent_state(self.states)
-
-                total_reward += self.AI_reward
-
-                print('--------ROUND PLAYED------------')
-
-            # Save the model every 10 episodes (or at your desired interval)
-            #if NUMBER_GAMES % 10 == 0:
-                #self.ai_agent.save_model(self.ai_agent.model, f'model_checkpoint_episode_{NUMBER_GAMES}.pth')
             
-            accumulated_rewards.append(total_reward)
-            list_of_actions.append(self.AI_action)
-            n_games += 1
-            print('n_games played:', n_games)
-        print(f"This many episodes were played {NUMBER_GAMES}")
-        #print(list_of_actions)
+            #EPISODE LEVEL:
+            #print how many games were played in total 
+            print(f"This many games were played {NUMBER_GAMES}")
+            print(f"End of episode {n_episodes}, started with episode zero")
+            score_at_episode = self.game.scores
+            print('score at current episode:', score_at_episode)
+            score_over_episodes.append(score_at_episode)
 
-
-       # Counting the occurrences of each action
+            n_episodes += 1
+        print('this are the scores after all episode:', score_over_episodes)
+        #FUNCTION LEVEL:
+        # Counting the occurrences of each action
         action_counts = np.bincount(list_of_actions)
-
+        actual_counts = np.bincount(list_actual)
 
         # Creating a single figure with three subplots
         fig, axs = plt.subplots(3, 1, figsize=(12, 18))
 
         # First subplot: Rewards over Time
-        axs[0].plot(accumulated_rewards, label='Episode Reward')
-        axs[0].set_xlabel('Episode')
+        axs[0].plot(accumulated_rewards, label='Game Reward')
+        axs[0].set_xlabel('Game')
         axs[0].set_ylabel('Total Reward')
         axs[0].set_title('Rewards over Time')
         axs[0].legend()
         axs[0].grid(True)
 
         # Second subplot: Occurrences of Each Action
-        axs[1].bar(range(len(action_counts)), action_counts, color='blue')
+        axs[1].bar(range(len(action_counts)), action_counts, color='blue', alpha=0.6, label='Predicted')
+        axs[1].bar(range(len(actual_counts)), actual_counts, color='red', alpha=0.6, label='True')
         axs[1].set_xlabel('Action')
         axs[1].set_ylabel('Occurrences')
         axs[1].set_title('Occurrences of Each Action')
         axs[1].set_xticks(range(len(action_counts)))
         axs[1].set_xticklabels([f'Action {i}' for i in range(len(action_counts))])
         axs[1].grid(axis='y')
+        # Add a legend
+        axs[1].legend()
 
         # Third subplot: Loss Curve
         axs[2].plot(self.ai_agent.losses, label='Training Loss')
@@ -291,9 +351,10 @@ class Training:
 
 if __name__ == "__main__":
     #hyperparameters 
-    LR = 0.010 #0.010 
+    LR = 0.001 #0.010 
     #global parameters
-    NUMBER_GAMES = 5000; TOTAL_ROUNDS=3 #actually here the number of games are equal to number of rounds since a game has 1 round. Total rounds= number of ticks per round
+    NUMBER_EPISODES = 5
+    NUMBER_GAMES = 5; TOTAL_ROUNDS=12 #actually here the number of games are equal to number of rounds since a game has 1 round. Total rounds= number of ticks per round
     #game parameters 
     num_players = 4  # Adjust as needed
     #Starting Player's order
@@ -301,10 +362,12 @@ if __name__ == "__main__":
     BOB_player_index = 1 #Bob is second to play
     ALICE_player_index = 2 # ALice is third to play
     ai_player_index = 3  # The last player is the AI agent
+    #we start with 3 cards in the hand
+    starting_deck_size = 8 
     # Create game instance: initialises all attributes
-    game = RikikiGame(num_players, ai_player_index, conservative_player_index, BOB_player_index, ALICE_player_index, starting_deck_size=3) #only play rounds of 3 cards
+    game = RikikiGame(num_players, ai_player_index, conservative_player_index, BOB_player_index, ALICE_player_index, starting_deck_size) #only play rounds of 3 cards
     # #create an ai_agent instance of class AIAgent
-    ai_agent = AIAgent(ai_player_index, num_players, LR)
+    ai_agent = AIAgent(ai_player_index, num_players, LR, starting_deck_size)
     #start one game
     trainer = Training(game, ai_agent)
     trainer.trainer()

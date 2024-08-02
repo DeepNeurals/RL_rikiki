@@ -118,7 +118,6 @@ class RikikiGame:
             return "Random Player"
 
 
-
     #printing function
     def print_scores(self):
         for player_num in range(self.num_players):
@@ -140,8 +139,7 @@ class RikikiGame:
         print(tabulate(table_data, headers, tablefmt="grid"))
 
     
-
-    def update_game_state(self):
+    def update_game_state(self, player_index):
         # general game state
         game_state = {
             "atout": self.atout,
@@ -149,12 +147,12 @@ class RikikiGame:
         }
         # Count the number of cards with each rank in the AI player's hand
         for rank, value in [('ace', 'Ace'), ('king', 'King'), ('queen', 'Queen')]:
-            game_state[f"num_{rank}s_in_hand"] = sum(card.value == value for card in self.players[self.ai_player_index])
+            game_state[f"num_{rank}s_in_hand"] = sum(card.value == value for card in self.players[player_index])
         # # Count atout cards in AI player's hand
-        game_state["num_atout_cards_in_hand"] = sum(card.suit == self.atout.suit for card in self.players[self.ai_player_index])
+        game_state["num_atout_cards_in_hand"] = sum(card.suit == self.atout.suit for card in self.players[player_index])
         
         for player_idx in range(self.num_players):
-            if player_idx != self.ai_player_index:
+            if player_idx != player_index:
                 player_bid = self.bids[player_idx] if player_idx < len(self.bids) else 0
                 game_state[f"player_{player_idx + 1}_bid"] = player_bid
         # Update the game state for the AI agent

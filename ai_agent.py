@@ -8,9 +8,7 @@ from nn_model import QNetwork
 from collections import deque
 
 class AIAgent:
-    def __init__(self, player_index, num_players, learning_rate, deck_size, gamma=0.99, epsilon=0.1):
-        self.player_index = player_index
-        self.num_players = num_players
+    def __init__(self, learning_rate, deck_size, gamma=0.99, epsilon=0.30):
         self.agent_state = None
         self.n_games = 0
         self.deck_size = deck_size
@@ -21,12 +19,9 @@ class AIAgent:
         self.epsilon = epsilon  # Exploration rate
         self.losses = []  # List to store loss values
 
-
         #for checking condition bid
         self.sum_bids = 0
         self.position_bidders = 0
-        
-
     
     #receive the game-state from the main.py Game
     def update_agent_state(self, game_state):

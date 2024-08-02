@@ -5,29 +5,49 @@ from ai_agent import AIAgent
 import random
 import torch
 import matplotlib.pyplot as plt
+from collections import defaultdict
 import numpy as np
 #from collections import defaultdict
 
 
 
 class Training:
-    def __init__(self, game, ai_agent):
+    def __init__(self, game, ai_agent, alice_ai_agent, ai_player_index, ALICE_player_index):
         self.game = game
         self.ai_agent = ai_agent
+        self.ai_player_index = ai_player_index
+        self.alice_ai_agent = alice_ai_agent
+        self.ALICE_player_index = ALICE_player_index
         self.states = None
         #for learning initialise these
         self.state_old = torch.zeros(1,8)
+        self.state_alice_old = torch.zeros(1,8)
         self.AI_action = 0
         self.AI_bid = 0 
         self.AI_reward  = 0
         self.done = 0
         self.counter_of_past_bidders = 0 #initialise with zero
-        self.total_reward = 0
+        self.total_round_reward = 0
+        self.list_of_actions = []
+        self.list_actual = []
+
+        #ALICE rewards
+        self.ALICE_reward = 0
+        self.ALICE_action = 0
+        self.alice_total_round_reward = 0
+        self.alice_states = None
 
     def bidding_phase(self):
         starting_player = (self.game.starting_player + 1) % self.game.num_players #wrap the 4 players from 0-3. 
-        self.states = self.game.update_game_state()
+        #this updates the state of the AI-player
+        self.states = self.game.update_game_state(self.ai_player_index)
+        #we need to do the same for ALice AI-player
+        self.alice_states = self.game.update_game_state(self.ALICE_player_index)
+
+        #update our two AI players
         self.ai_agent.update_agent_state(self.states)
+        self.alice_ai_agent.update_agent_state(self.alice_states)
+
         for i in range(self.game.num_players):
             current_player = (starting_player + i) % self.game.num_players
             self.get_bid(current_player)
@@ -65,21 +85,41 @@ class Training:
         elif player_num == self.game.BOB_player_index:
             if self.counter_of_past_bidders == num_players:
                 bid = self.game.current_deck_size - total_bid_sum
-                print(f'Bob bids {bid} as the last player')
+                #print(f'Bob bids {bid} as the last player')
             else:
                 bid = self.game.current_deck_size
+            #joe needs to update all the relevant state information such that Alice can use them 
+            self.alice_states = self.game.update_game_state(self.ALICE_player_index)
+            self.alice_ai_agent.update_agent_state(self.alice_states) 
+            
 
         # Alice (Random Bidder)
         elif player_num == self.game.ALICE_player_index:
-            if self.counter_of_past_bidders != num_players:
-                bid = random.randint(0, self.game.current_deck_size)
-            else:
-                while True:
-                    bid = random.randint(0, self.game.current_deck_size)
-                    if bid + total_bid_sum != self.game.current_deck_size:
-                        break
-            self.states = self.game.update_game_state()
-            self.ai_agent.update_agent_state(self.states)
+            # if self.counter_of_past_bidders != num_players:
+            #     bid = random.randint(0, self.game.current_deck_size)
+            # else:
+            #     while True:
+            #         bid = random.randint(0, self.game.current_deck_size)
+            #         if bid + total_bid_sum != self.game.current_deck_size:
+            #             break
+            # #make ALice play like a AI-player  --> THIS IS WIP
+            self.alice_ai_agent.sum_bids = total_bid_sum
+            self.alice_ai_agent.position_bidders = self.counter_of_past_bidders
+        
+            # #update alice model based on the reward received in previous round 
+            self.ai_agent.update(self.state_alice_old, self.ALICE_action, self.ALICE_reward, self.alice_states, self.done) 
+
+
+            #TEST if states are updated correctly
+            print(f"STATE OF ALICE {self.alice_states}")
+
+            bid = self.alice_ai_agent.make_bid() #in this function the forward pass happens --> we miss a input state
+            self.ALICE_action = bid
+            
+            #crucial step to update the states for AI player to make a bid 
+            self.states = self.game.update_game_state(self.ai_player_index)
+            self.ai_agent.update_agent_state(self.states) 
+        
 
         # AI Player: here the AI agent makes the bid
         elif player_num == self.game.ai_player_index:
@@ -88,7 +128,7 @@ class Training:
             #we update the model with previous round information
             self.ai_agent.update(self.state_old, self.AI_action, self.AI_reward, self.states, self.done) #from previous round: state_old, AI_action, AI_reward #current: self.states
             bid = self.ai_agent.make_bid() #in this function the forward pass happens
-            print('The AI agent made its choice', bid)
+            #print('The AI agent made its choice', bid)
             self.AI_bid = bid
         
         # Handle unexpected player numbers
@@ -114,17 +154,19 @@ class Training:
 
         return winning_card, winning_player_role
 
-    def assign_points(self, leadership_points):
+    def assign_points(self, leadership_points, player_index):
         list_points  =  list(leadership_points.values())
         max_point = max(list_points)
         index_player = list_points.index(max_point)
         # print('Type of self.game.scores:', type(leadership_points))
-        # print('Content of self.game.scores:', leadership_points)
+        #print('Content of self.game.scores:', leadership_points)
         # print('leadership points values:', list(leadership_points.values()))
-        # print('max points values:', max(list(leadership_points.values())))
+        #print('max points values:', max_point)
         # print('index of player', index_player)
-        if index_player ==3:
-            return 100
+        if index_player ==player_index and max_point>0:
+            return 300
+        elif index_player==player_index:
+            return 50
         else:
             return 0
 
@@ -132,7 +174,7 @@ class Training:
     def play_all_tricks(self): #play all tricks in the current round
         for _ in range(self.game.current_deck_size):
             self.play_trick()
-            print('-------------Trick Played-----------')
+            #print('-------------Trick Played-----------')
 
     def play_trick(self):
         trick_cards = []
@@ -168,7 +210,7 @@ class Training:
             #remove played card from player' s hand
             self.game.players[current_player].remove(card)
             #print what card was played by who
-            print(f"{role} (Player {current_player + 1}) plays: {card}")
+            #print(f"{role} (Player {current_player + 1}) plays: {card}") ##commented out for efficiency
 
         #determine who won the plit in this trick (a trick being 1-play of card in a round)
         #print('trick cards:', trick_cards)
@@ -178,7 +220,7 @@ class Training:
         # winning_player = trick_cards.index(winning_card)
         winning_player_index = next(i for i, card_tuple in enumerate(trick_cards) if card_tuple == (winning_card, winning_player_role))
         #winner_role = self.game.get_player_role(winning_player)
-        print(f" {winning_player_role}  wins the trick with {winning_card}")   #==> need to add here that the next to play the trick is the winner
+        #print(f" {winning_player_role}  wins the trick with {winning_card}")   #COMMENTED OUT FOR EFFICEINCY
 
         # Update the starting player to the winning player for the next trick
         self.game.starting_player = (self.game.starting_player + winning_player_index) % self.game.num_players
@@ -198,7 +240,7 @@ class Training:
         #play one full round
         self.play_all_tricks()  
         #calculate the scores after one full round
-        self.game.calculate_scores()   #after this moment we know the reward
+        self.game.calculate_scores()   #here the reward of the round is calculated
 
         #print the results
         #self.game.print_scores()
@@ -207,115 +249,90 @@ class Training:
         #store for next round optimisation the state of this round
         self.state_old = self.states
         #print('print the rewards for the 4 players:', self.game.rewards[3])
+        #for ALICE 
+        self.state_alice_old = self.alice_states
 
         #these are the action and reward to update the model
         self.AI_action = self.AI_bid  #is good
         self.AI_reward = self.game.rewards[3] #here we are gonna refer to a very small reward in function of how good it predicts
 
+        #ALICE rewards
+        self.ALICE_reward = self.game.rewards[2] 
+        
         #you need to store here the true bids
         #print('these are the actual scores:', self.game.pli_scores[3])
         self.AI_actual = self.game.pli_scores[3]
         #reset the game cards for next round
         self.game.reset_for_next_round()
+
+
         #We need to feed (state, action, reward, next_state) to the update function
         self.ai_agent.update_agent_state(self.states)
-        self.total_reward += self.AI_reward #store the reward of the AI 
-        print(f"--------ROUND {round_number} PLAYED------------")
 
 
+        #STORE rewards and actions for plotting
+        self.total_round_reward += self.AI_reward #store reward of AI won during the round
+        self.alice_total_round_reward += self.ALICE_reward
+        
+        #add the actions and actual to the lists
+        self.list_of_actions.append(self.AI_action)
+        self.list_actual.append(self.AI_actual)
+        #print(f"--------ROUND {round_number} PLAYED------------")
 
-    # Train One-full episode
+
+    # Train the model 
     def trainer(self):
-        n_episodes = 0 
         accumulated_rewards = []
-        list_of_actions = []
-        list_actual = []
-        total_reward = 0
-        score_over_episodes = []
+        alice_acc_rewards  = []
+        score_over_games = []
+        big_rewards_list = []
+        n_games_played = 0 #initialisation of game counter
 
-        while n_episodes<NUMBER_EPISODES:
-            print(f"Start of episode {n_episodes}")
-            n_games_played = 0 #initialisation of game counter
-            while n_games_played<NUMBER_GAMES: 
-                #here we want to play 4 rounds
-                #total_reward = 0
-                for round_number in range(TOTAL_ROUNDS): 
-                    self.play_round(round_number)
-                    # #ROUND LEVEL:
-                    # #self.game.current_deck_size = self.game.starting_deck_size + round_number
-                    # #only for minimum version -- IMPORTANT CHANGE ---
-                    # self.game.current_deck_size = self.game.starting_deck_size
-                    # self.game.deal_cards(round_number)
-                    # self.game.select_atout()
-                    # #Update the atout information and player' s card to the state// in case AI bid first
-                    # #self.states = self.game.update_game_state() #not necessary since done when starting bidding phase
-
-                    # #get the bids from the 4 players
-                    # self.bidding_phase()  #in between one of the players the AI makes it bid, model is updated here
-                    # #play one full round
-                    # self.play_all_tricks()  
-                    # #calculate the scores after one full round
-                    # self.game.calculate_scores()   #after this moment we know the reward
-
-                    # #print the results
-                    # #self.game.print_scores()
-                    # self.game.print_overview_table()
-
-                    # #store for next round optimisation the state of this round
-                    # self.state_old = self.states
-                    # #print('print the rewards for the 4 players:', self.game.rewards[3])
-
-                    # #these are the action and reward to update the model
-                    # self.AI_action = self.AI_bid  #is good
-                    # self.AI_reward = self.game.rewards[3] #here we are gonna refer to a very small reward in function of how good it predicts
-
-                    # #you need to store here the true bids
-                    # #print('these are the actual scores:', self.game.pli_scores[3])
-                    # self.AI_actual = self.game.pli_scores[3]
-                    # #reset the game cards for next round
-                    # self.game.reset_for_next_round()
-                    # #We need to feed (state, action, reward, next_state) to the update function
-                    # self.ai_agent.update_agent_state(self.states)
-                    # total_reward += self.AI_reward #store the reward of the AI 
-                    # print(f"--------ROUND {round_number} PLAYED------------")
-                
-                #GAME LEVEL:
-                # SAVING THE MODEL:
-                #if NUMBER_GAMES % 10 == 0:
-                    #self.ai_agent.save_model(self.ai_agent.model, f'model_checkpoint_episode_{NUMBER_GAMES}.pth')
-                #at the end of every round:
-                accumulated_rewards.append(self.total_reward) 
-                list_of_actions.append(self.AI_action)
-                list_actual.append(self.AI_actual)
-                #Determine a winner of the game in function of the leadership positions
-                big_reward = self.assign_points(self.game.scores)
-                self.AI_reward += big_reward
-                print(f"End of game number {n_games_played}, started with game zero")
-                n_games_played += 1
-
-
-
+        while n_games_played<NUMBER_GAMES: 
+            self.game.scores = defaultdict(int) ###--> this resets the scores to zero after each game 
+            #Play all the rounds of a full game
+            for round_number in range(TOTAL_ROUNDS): 
+                self.play_round(round_number)
+            #GAME LEVEL:
+            # SAVING THE MODEL:
+            #if NUMBER_GAMES % 10 == 0:
+                #self.ai_agent.save_model(self.ai_agent.model, f'model_checkpoint_game_{NUMBER_GAMES}.pth'
             
-            #EPISODE LEVEL:
-            #print how many games were played in total 
-            print(f"This many games were played {NUMBER_GAMES}")
-            print(f"End of episode {n_episodes}, started with episode zero")
-            score_at_episode = self.game.scores
-            print('score at current episode:', score_at_episode)
-            score_over_episodes.append(score_at_episode)
+            #at the end of every game:
+            accumulated_rewards.append(self.total_round_reward) 
+            #reward of alice
+            alice_acc_rewards.append(self.alice_total_round_reward)
 
-            n_episodes += 1
-        print('this are the scores after all episode:', score_over_episodes)
+
+            #You can win a big reward at the end of game 
+            big_reward = self.assign_points(self.game.scores, 3)
+            big_rewards_list.append(big_reward)
+            self.AI_reward += big_reward
+
+            #check if alice wins a big reward this game
+            big_reward_alice = self.assign_points(self.game.scores, 2)
+            self.ALICE_reward += big_reward_alice
+
+            #store the scores after each game
+            score_over_games.append(self.game.scores)
+
+            print(f"----GAME {n_games_played} PLAYED---, started with game zero")
+            n_games_played += 1
+
+        print('LIST OF BIG REWARDS:' , big_rewards_list)
+        #print("SCORES OVER GAMES:", score_over_games)
+
         #FUNCTION LEVEL:
         # Counting the occurrences of each action
-        action_counts = np.bincount(list_of_actions)
-        actual_counts = np.bincount(list_actual)
+        action_counts = np.bincount(self.list_of_actions)
+        actual_counts = np.bincount(self.list_actual)
 
         # Creating a single figure with three subplots
         fig, axs = plt.subplots(3, 1, figsize=(12, 18))
 
         # First subplot: Rewards over Time
-        axs[0].plot(accumulated_rewards, label='Game Reward')
+        axs[0].plot(accumulated_rewards,color='green', label='AI Game Reward')
+        axs[0].plot(alice_acc_rewards, color='pink', label='ALICE Game Reward')
         axs[0].set_xlabel('Game')
         axs[0].set_ylabel('Total Reward')
         axs[0].set_title('Rewards over Time')
@@ -341,20 +358,16 @@ class Training:
         axs[2].set_title('Loss Curve')
         axs[2].legend()
         axs[2].grid(True)
-
         # Adjust layout to prevent overlap
         plt.tight_layout()
         plt.show()
-
-
 
 
 if __name__ == "__main__":
     #hyperparameters 
     LR = 0.001 #0.010 
     #global parameters
-    NUMBER_EPISODES = 5
-    NUMBER_GAMES = 5; TOTAL_ROUNDS=12 #actually here the number of games are equal to number of rounds since a game has 1 round. Total rounds= number of ticks per round
+    NUMBER_GAMES = 10; TOTAL_ROUNDS=12 #actually here the number of games are equal to number of rounds since a game has 1 round. Total rounds= number of ticks per round
     #game parameters 
     num_players = 4  # Adjust as needed
     #Starting Player's order
@@ -367,9 +380,13 @@ if __name__ == "__main__":
     # Create game instance: initialises all attributes
     game = RikikiGame(num_players, ai_player_index, conservative_player_index, BOB_player_index, ALICE_player_index, starting_deck_size) #only play rounds of 3 cards
     # #create an ai_agent instance of class AIAgent
-    ai_agent = AIAgent(ai_player_index, num_players, LR, starting_deck_size)
+    ai_agent = AIAgent(LR, starting_deck_size)
+
+    #ALICE ai_agent instance 
+    alice_ai_agent = AIAgent(LR, starting_deck_size)
+
     #start one game
-    trainer = Training(game, ai_agent)
+    trainer = Training(game, ai_agent, alice_ai_agent, ai_player_index, ALICE_player_index)
     trainer.trainer()
 
 

@@ -1,5 +1,5 @@
 import torch
-from nn_model import QNetwork  # Import your model class
+from nn_model_bid import QNetwork  # Import your model class
 
 # Initialize the model
 model = QNetwork()

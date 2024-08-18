@@ -4,12 +4,35 @@ import torch.optim as optim
 import torch.nn.functional as F
 import numpy as np
 import random
-from nn_model import QNetwork
+from nn_model_bid import QNetwork
+from nn_model_play import CardSelectionNN
 from collections import deque
+from collections import namedtuple
+import pydealer
+
+value_mapping = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "Jack", "Queen", "King", "Ace"]
+suit_mapping = ["Diamonds", "Spades", "Hearts", "Clubs"]
+
+
+class CustomCard(pydealer.Card):
+    def __init__(self, number, suit, custom_value=None):
+        super().__init__(number, suit)
+        self.custom_value = custom_value if custom_value is not None else self.default_value()
+
+    def default_value(self):
+        # Define default values for cards if no custom value is provided
+        value_map = {
+            '2': 2, '3': 3, '4': 4, '5': 5, '6': 6,
+            '7': 7, '8': 8, '9': 9, '10': 10,
+            'Jack': 11, 'Queen': 12, 'King': 13, 'Ace': 14
+        }
+        return value_map.get(self.value, 0)
+
 
 class AIAgent:
     def __init__(self, learning_rate, deck_size, gamma=0.99, epsilon=0.30):
         self.agent_state = None
+        self.playing_state = None
         self.n_games = 0
         self.deck_size = deck_size
         self.model = QNetwork(self.deck_size)
@@ -18,6 +41,7 @@ class AIAgent:
         self.criterion = nn.MSELoss()
         self.epsilon = epsilon  # Exploration rate
         self.losses = []  # List to store loss values
+        self.card_model = CardSelectionNN()
 
         #for checking condition bid
         self.sum_bids = 0
@@ -29,6 +53,69 @@ class AIAgent:
         self.deck_size = game_state[4].item()
         #print(' test check for deck size:', self.deck_size)
 
+    #called every time the AI needs to play a card
+    def update_playing_state(self, playing_state):
+        self.playing_state = playing_state
+    
+    #create Mask function
+    def create_mask(self, input_tensor):
+        # Select the first 17 columns corresponding to the card encoding (assuming card info is in the first 15 features)
+        card_features = input_tensor[:8, :17]
+        # Create a mask: rows with all 0s in the first 17 features should be masked
+        zero_card_mask = (card_features.sum(dim=1) == 0).float() * -1e9
+        print(f"card features: {card_features}")
+        print(f"zero card mask{zero_card_mask}")
+        # Expand the mask to match the shape of the logits (rows for cards)
+        mask = zero_card_mask.unsqueeze(1)  # Convert to column vector
+        return mask
+    
+    #select row function
+    def select_row(self, output_tensor, input_tensor):
+        """
+        Select the row with the highest probability from the output tensor
+        and map it to the corresponding card in the input tensor.
+
+        Args:
+        - output_tensor (Tensor): Tensor containing output logits/probabilities (N x C).
+        - input_tensor (Tensor): Tensor containing card information (N x F).
+
+        Returns:
+        - Card: The selected card with the highest probability.
+        """
+        # Compute the sum of each row in the output tensor
+        row_sums = output_tensor.sum(dim=1)
+        
+        # Find the index of the row with the highest sum
+        max_row_index = row_sums.argmax().item()
+        
+        # Retrieve the corresponding row from the input tensor
+        selected_row = input_tensor[max_row_index]
+        
+        # For demonstration purposes, assuming the row is a card
+        return selected_row
+
+
+    def tensor_to_card(self, tensor_row):
+        """
+        Convert a tensor row representing a card back into a Card object.
+
+        Args:
+        - tensor_row (Tensor): Tensor representing a card.
+
+        Returns:
+        - Card: The corresponding Card object.
+        """
+        # Assuming the first part of the tensor encodes the card value
+        value_index = tensor_row[:len(value_mapping)].argmax().item()
+        value = value_mapping[value_index]
+
+        # Assuming the next part encodes the card suit
+        suit_index = tensor_row[len(value_mapping):len(value_mapping) + len(suit_mapping)].argmax().item()
+        suit = suit_mapping[suit_index]
+        return CustomCard(value, suit)
+    
+
+    
     ##FUNCION 1: that interferes with the Rikiki_game
     def make_bid(self):
         x = self.agent_state #last state information we have
@@ -54,12 +141,22 @@ class AIAgent:
                     continue
         return bid
     
-    #function to save the model
-    @staticmethod
-    def save_model(model, filename):
-        torch.save(model.state_dict(), filename)
-    
+    ##FUNCION 2: that interferes with the Rikiki_game
+    def ai_choose_card(self, input_tensor, LD_condition):
+        # Create the mask
+        mask = self.create_mask(input_tensor)
+        # Call the forward function to get logits
+        logits = self.card_model.forward(input_tensor)
+        # Apply the mask and softmax to get the probabilities
+        output_tensor = self.card_model.masked_softmax(logits, mask)
+        tensor_row = self.select_row(output_tensor, input_tensor)
+        # Convert tensor row to Card
+        selected_card = self.tensor_to_card(tensor_row)
+        print("Selected Card:", selected_card)
+        return selected_card
 
+    
+    #UPDATE MODEL --> 
     def update(self, state, action, reward, next_state, done):
         """Update the Q-values based on experience"""
         # Compute the target
@@ -85,3 +182,9 @@ class AIAgent:
         print(f"\033[91mLoss: {loss.item()}\033[0m")
         # Store the loss value
         self.losses.append(loss.item())
+
+    #function to save a model to a specific filename
+    @staticmethod
+    def save_model(model, filename):
+        torch.save(model.state_dict(), filename)
+    

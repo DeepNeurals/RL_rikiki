@@ -7,8 +7,6 @@ import torch
 import matplotlib.pyplot as plt
 from collections import defaultdict
 import numpy as np
-#from collections import defaultdict
-
 
 
 class Training:
@@ -111,6 +109,7 @@ class Training:
 
 
             #TEST if states are updated correctly
+            print(f"HAND OF ALICE")
             print(f"STATE OF ALICE {self.alice_states}")
 
             bid = self.alice_ai_agent.make_bid() #in this function the forward pass happens --> we miss a input state
@@ -139,7 +138,6 @@ class Training:
         #print(f"{role} (Player {player_num + 1}) bids: {bid}")
         self.game.bids[player_num] = bid
 
-    
     def win_card(self, trick_cards, leading_suit):
         # Separate cards into atout and leading suit groups
         atout_cards = [(card, player_role) for card, player_role in trick_cards if card.suit == self.game.atout.suit]
@@ -170,7 +168,6 @@ class Training:
         else:
             return 0
 
-
     def play_all_tricks(self): #play all tricks in the current round
         for _ in range(self.game.current_deck_size):
             self.play_trick()
@@ -181,26 +178,64 @@ class Training:
         leading_suit = None
 
         #for player in 4 players
+        print("START TRICK")
         for player_num in range(self.game.num_players):
-            #print('player_num:', player_num)
-            current_player = (self.game.starting_player + player_num) % self.game.num_players
-            #print('current_player:', current_player)
-            role = self.game.get_player_role(current_player)
 
-            #Playing strategy for all the players incuding the AI player
-            if leading_suit: 
-                leading_cards = [card for card in self.game.players[current_player] if card.suit == leading_suit]
-                if leading_cards: # Play the highest card of the leading suit that you have
-                    card = max(leading_cards, key=lambda x: x.custom_value)
-                else: # No leading suit cards, check for atout cards
-                    atout_cards = [card for card in self.game.players[current_player] if card.suit == self.game.atout.suit]
-                    if atout_cards: # Play the highest atout card
-                        card = max(atout_cards, key=lambda x: x.custom_value)
-                    else: # Play the highest non-atout card
-                        #print('TEST', self.game.players[current_player])
-                        card = max(self.game.players[current_player], key=lambda x: x.custom_value)
-            else: # No leading suit established, play the highest card available in your player' s deck
-                card = max(self.game.players[current_player], key=lambda x: x.custom_value)
+            #PlAYER SELLECTION
+            print("PLAYER SELECTION")
+            #print('Player_num:', player_num)
+            current_player = (self.game.starting_player + player_num) % self.game.num_players
+            print('Current_player:', current_player)
+            role = self.game.get_player_role(current_player)
+            print('Role', role)
+
+            if current_player != self.ai_player_index:
+                #Playing strategy for all the players incuding the AI player
+                if leading_suit: 
+                    leading_cards = [card for card in self.game.players[current_player] if card.suit == leading_suit]
+                    if leading_cards: # Play the highest card of the leading suit that you have
+                        card = max(leading_cards, key=lambda x: x.custom_value)
+                    else: # No leading suit cards, check for atout cards
+                        atout_cards = [card for card in self.game.players[current_player] if card.suit == self.game.atout.suit]
+                        if atout_cards: # Play the highest atout card
+                            card = max(atout_cards, key=lambda x: x.custom_value)
+                        else: # Play the highest non-atout card
+                            #print('TEST', self.game.players[current_player])
+                            card = max(self.game.players[current_player], key=lambda x: x.custom_value)
+                else: # No leading suit established, play the highest card available in your player' s deck
+                    card = max(self.game.players[current_player], key=lambda x: x.custom_value)
+
+            elif current_player == self.ai_player_index:
+                print("HAND:", self.game.players[current_player])
+                hand = self.game.players[current_player]
+                #Information prior to make choice
+                print(f"Info before AI makes choice trick_cards:{trick_cards}")
+                #pli wons and predicted
+                # print(f"\033[32mPli actual won {self.game.pli_scores[self.ai_player_index]}\033[0m")
+                # print(f"\033[32mPli predicted: {self.game.bids[self.ai_player_index]}\033[0m")
+
+                tricks_won  = self.game.pli_scores[self.ai_player_index]
+                tricks_predicted  = self.game.bids[self.ai_player_index]
+                #create the input tensor 
+                input_tensor = self.game.process_hand(hand, trick_cards, tricks_won, tricks_predicted)
+                print(f"\033[32minput_tensor is: {input_tensor}\033[0m")
+
+                if leading_suit:
+                    leading_cards = [card for card in self.game.players[current_player] if card.suit == leading_suit]
+                    if leading_cards:
+                        LD_condition = 1 #create a Leading card condition to meet a Rikiki Rules
+                        card = self.ai_agent.ai_choose_card(input_tensor, LD_condition)  ##this function will provide the card to play
+                    else:
+                        LD_condition = 0
+                        card = self.ai_agent.ai_choose_card(input_tensor, LD_condition)
+                else:
+                    LD_condition = 0
+                    card = self.ai_agent.ai_choose_card(input_tensor, LD_condition)
+
+                ###TO REMOVE
+                # card = max(self.game.players[current_player], key=lambda x: x.custom_value)
+            else:
+                raise Exception("Error with current player of players") 
 
             #append card to the trick
             trick_cards.append((card, role))
@@ -208,10 +243,13 @@ class Training:
             if not leading_suit:
                 leading_suit = card.suit
             #remove played card from player' s hand
+            print(f"Players hand {self.game.players[current_player]}")
+            print(f"Card player wants to remove out of hand: {card}")
             self.game.players[current_player].remove(card)
             #print what card was played by who
             #print(f"{role} (Player {current_player + 1}) plays: {card}") ##commented out for efficiency
-
+        
+        print(f"These are the trick_cards:{trick_cards}")
         #determine who won the plit in this trick (a trick being 1-play of card in a round)
         #print('trick cards:', trick_cards)
         winning_card, winning_player_role = self.win_card(trick_cards, leading_suit)
@@ -224,6 +262,7 @@ class Training:
 
         # Update the starting player to the winning player for the next trick
         self.game.starting_player = (self.game.starting_player + winning_player_index) % self.game.num_players
+        #print('Starting player next trick:', self.game.starting_player)
 
         #update the pli score of the winning player
         self.game.pli_scores[winning_player_index] += 1
@@ -265,10 +304,8 @@ class Training:
         #reset the game cards for next round
         self.game.reset_for_next_round()
 
-
         #We need to feed (state, action, reward, next_state) to the update function
         self.ai_agent.update_agent_state(self.states)
-
 
         #STORE rewards and actions for plotting
         self.total_round_reward += self.AI_reward #store reward of AI won during the round

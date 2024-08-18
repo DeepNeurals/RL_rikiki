@@ -5,6 +5,15 @@ import random
 from ai_agent import AIAgent
 import torch
 
+value_to_idx = {
+    '2': 0, '3': 1, '4': 2, '5': 3, '6': 4, '7': 5, '8': 6, 
+    '9': 7, '10': 8, 'Jack': 9, 'Queen': 10, 'King': 11, 'Ace': 12
+}
+
+suit_to_idx = {
+    'Diamonds': 0, 'Spades': 1, 'Hearts': 2, 'Clubs': 3
+}
+
 ###GAME RELATED STUFF####
 #create CustomCard class
 class CustomCard(pydealer.Card):
@@ -183,3 +192,61 @@ class RikikiGame:
         ], dtype=torch.float)   #state is a 8x1 tensor, remove the score of AI player
         return state_representation
 
+    #Input tensor encoding -------
+    # Define the possible values and suits
+    def one_hot_encode_card(self, card):
+        # One-hot encoding for card value (13 possible values)
+        value_one_hot = torch.zeros(13)
+        if card is not None:
+            value_index = value_to_idx[card.value]
+            value_one_hot[value_index] = 1
+
+        # One-hot encoding for card suit (4 possible suits)
+        suit_one_hot = torch.zeros(4)
+        if card is not None:
+            suit_index = suit_to_idx[card.suit]
+            suit_one_hot[suit_index] = 1
+
+        # Concatenate the two one-hot encodings (value + suit)
+        card_one_hot = torch.cat((value_one_hot, suit_one_hot))
+
+        return card_one_hot
+
+    def process_hand(self, cards, trick_cards, tricks_won, tricks_predicted):
+        # Process cards in hand, keeping hand size fixed
+        encoded_hand = []
+        
+        # Add played cards as null vectors if a card is played
+        for i in range(self.starting_deck_size):
+            if i < len(cards):
+                encoded_hand.append(self.one_hot_encode_card(cards[i]))
+            else:
+                # Represent played cards as null vectors (zeros)
+                encoded_hand.append(torch.zeros(17))
+
+        # Trick Cards mapping
+        player_indices = {'JOE Conservative Player': 0, 'BOB liberal bidder': 1, 'Alice random bidder': 2}
+        
+        # Initialize with None or zeros for all players
+        trick_card_placeholders = [None, None, None]
+
+        # Place trick cards in the correct positions
+        for card, player in trick_cards:
+            idx = player_indices.get(player)
+            if idx is not None:
+                trick_card_placeholders[idx] = card
+
+        # Encode the trick cards (if no card, use null vector)
+        encoded_trick_cards = [self.one_hot_encode_card(card) if card is not None else torch.zeros(17) for card in trick_card_placeholders]
+
+        # Combine the hand and trick cards
+        combined_cards = encoded_hand + encoded_trick_cards
+
+        # Add tricks won and predicted tricks as additional information
+        tricks_info = torch.tensor([tricks_won, tricks_predicted], dtype=torch.float32)
+
+        # Add the tricks info to each card vector, expanding the 17-dim vectors to 19-dim
+        combined_input = [torch.cat((card, tricks_info)) for card in combined_cards]
+
+        # Stack all rows into a single tensor
+        return torch.stack(combined_input)

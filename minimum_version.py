@@ -8,6 +8,12 @@ import matplotlib.pyplot as plt
 from collections import defaultdict
 import numpy as np
 
+suit_to_idx = {
+    'Diamonds': 0,
+    'Spades': 1,
+    'Hearts': 2,
+    'Clubs': 3
+}
 
 class Training:
     def __init__(self, game, ai_agent, alice_ai_agent, ai_player_index, ALICE_player_index):
@@ -223,13 +229,13 @@ class Training:
                 if leading_suit:
                     leading_cards = [card for card in self.game.players[current_player] if card.suit == leading_suit]
                     if leading_cards:
-                        LD_condition = 1 #create a Leading card condition to meet a Rikiki Rules
+                        LD_condition = suit_to_idx[leading_suit] #create a Leading card condition to meet a Rikiki Rules
                         card = self.ai_agent.ai_choose_card(input_tensor, LD_condition)  ##this function will provide the card to play
                     else:
-                        LD_condition = 0
+                        LD_condition = -1 #means there no condition
                         card = self.ai_agent.ai_choose_card(input_tensor, LD_condition)
                 else:
-                    LD_condition = 0
+                    LD_condition = -1 #means there no condition
                     card = self.ai_agent.ai_choose_card(input_tensor, LD_condition)
 
                 ###TO REMOVE

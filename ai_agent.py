@@ -58,15 +58,44 @@ class AIAgent:
         self.playing_state = playing_state
     
     #create Mask function
-    def create_mask(self, input_tensor):
+    def create_mask(self, input_tensor, LD_condition):
         # Select the first 17 columns corresponding to the card encoding (assuming card info is in the first 15 features)
         card_features = input_tensor[:8, :17]
         # Create a mask: rows with all 0s in the first 17 features should be masked
-        zero_card_mask = (card_features.sum(dim=1) == 0).float() * -1e9
-        print(f"card features: {card_features}")
-        print(f"zero card mask{zero_card_mask}")
-        # Expand the mask to match the shape of the logits (rows for cards)
-        mask = zero_card_mask.unsqueeze(1)  # Convert to column vector
+        if LD_condition == -1:
+            zero_card_mask = (card_features.sum(dim=1) == 0).float() * -1e9
+            print(f"card features: {card_features}")
+            print(f"zero card mask{zero_card_mask}")
+            # Expand the mask to match the shape of the logits (rows for cards)
+            mask = zero_card_mask.unsqueeze(1)  # Convert to column vector
+
+        # elif LD_condition >= 0 and LD_condition<4: #One of the suits is leading
+        #     zero_card_mask = (card_features.sum(dim=1) == 0).float() * -1e9
+        #     print(f"card features: {card_features}")
+        #     print(f"zero card mask{zero_card_mask}")
+        #     print("TESTTTTT")
+
+        #     # Expand the mask to match the shape of the logits (rows for cards)
+        #     mask = zero_card_mask.unsqueeze(1)  # Convert to column vector
+        # else:
+        #     raise ValueError("Invalid LD_condition")
+
+        elif 0 <= LD_condition < 4:  # One of the suits is leading
+            # Extract the suit features (last 4 features)
+            num_suits = 4
+            suit_features = card_features[:, -num_suits:]
+            
+            # Create mask for the cards that match the LD_condition suit
+            suit_mask = suit_features[:, LD_condition] > 0
+            print(f"card features: {card_features}")
+            print(f"suit features: {suit_features}")
+            print(f"suit mask: {suit_mask.float()}")
+            
+            # Expand the mask to match the shape of the logits (rows for cards)
+            mask = suit_mask.float().unsqueeze(1)  # Convert to column vector
+            print(f"The mask with LD-condition is: {mask}")
+        else:
+            raise ValueError("Invalid LD_condition")
         return mask
     
     #select row function
@@ -92,6 +121,7 @@ class AIAgent:
         selected_row = input_tensor[max_row_index]
         
         # For demonstration purposes, assuming the row is a card
+        print(f"For testing this is the selected row: {selected_row}")
         return selected_row
 
 
@@ -143,8 +173,12 @@ class AIAgent:
     
     ##FUNCION 2: that interferes with the Rikiki_game
     def ai_choose_card(self, input_tensor, LD_condition):
-        # Create the mask
-        mask = self.create_mask(input_tensor)
+        blue_text = "\033[34m"  # Blue text
+        reset_text = "\033[0m"  # Reset to default color
+        # Print in blue
+        print(f"{blue_text}LD_condition: {LD_condition}{reset_text}")
+        # Create the mask for nul vectors and if LD is active, masks non leading cards
+        mask = self.create_mask(input_tensor, LD_condition)
         # Call the forward function to get logits
         logits = self.card_model.forward(input_tensor)
         # Apply the mask and softmax to get the probabilities

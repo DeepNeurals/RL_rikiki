@@ -41,6 +41,11 @@ class Training:
         self.alice_total_round_reward = 0
         self.alice_states = None
 
+        # #for Card NN update
+        # self.old_input_tensor = torch.zeros(11,19)
+        # self.old_ai_card_chosen = defaultdict
+        self.counter_played = 0
+
     def bidding_phase(self):
         starting_player = (self.game.starting_player + 1) % self.game.num_players #wrap the 4 players from 0-3. 
         #this updates the state of the AI-player
@@ -106,12 +111,13 @@ class Training:
             #         bid = random.randint(0, self.game.current_deck_size)
             #         if bid + total_bid_sum != self.game.current_deck_size:
             #             break
+
             # #make ALice play like a AI-player  --> THIS IS WIP
             self.alice_ai_agent.sum_bids = total_bid_sum
             self.alice_ai_agent.position_bidders = self.counter_of_past_bidders
         
             # #update alice model based on the reward received in previous round 
-            self.ai_agent.update(self.state_alice_old, self.ALICE_action, self.ALICE_reward, self.alice_states, self.done) 
+            self.ai_agent.update(self.ai_agent.bid_model, self.state_alice_old, self.ALICE_action, self.ALICE_reward, self.alice_states, self.done) 
 
 
             #TEST if states are updated correctly
@@ -130,8 +136,9 @@ class Training:
         elif player_num == self.game.ai_player_index:
             self.ai_agent.sum_bids = total_bid_sum
             self.ai_agent.position_bidders = self.counter_of_past_bidders
-            #we update the model with previous round information
-            self.ai_agent.update(self.state_old, self.AI_action, self.AI_reward, self.states, self.done) #from previous round: state_old, AI_action, AI_reward #current: self.states
+
+            #before bidding we update the model with previous round information
+            self.ai_agent.update(self.ai_agent.bid_model, self.state_old, self.AI_action, self.AI_reward, self.states, self.done) #from previous round: state_old, AI_action, AI_reward #current: self.states
             bid = self.ai_agent.make_bid() #in this function the forward pass happens
             #print('The AI agent made its choice', bid)
             self.AI_bid = bid
@@ -196,7 +203,7 @@ class Training:
             print('Role', role)
 
             if current_player != self.ai_player_index:
-                #Playing strategy for all the players incuding the AI player
+                #Playing strategy for all the players excluding the AI player
                 if leading_suit: 
                     leading_cards = [card for card in self.game.players[current_player] if card.suit == leading_suit]
                     if leading_cards: # Play the highest card of the leading suit that you have
@@ -226,20 +233,28 @@ class Training:
                 input_tensor = self.game.process_hand(hand, trick_cards, tricks_won, tricks_predicted)
                 print(f"\033[32minput_tensor is: {input_tensor}\033[0m")
 
+                #before choosing a card we update the model
+                if self.counter_played > 0: #do not update the first time 
+                    self.ai_agent.update(self.ai_agent.card_model, self.old_input_tensor, self.old_index_card_chosen, self.AI_reward, input_tensor, self.done) #state = input tensor, 
+                    #test of seeing if AI-reward can be shared
+                
                 if leading_suit:
                     leading_cards = [card for card in self.game.players[current_player] if card.suit == leading_suit]
                     if leading_cards:
                         LD_condition = suit_to_idx[leading_suit] #create a Leading card condition to meet a Rikiki Rules
-                        card = self.ai_agent.ai_choose_card(input_tensor, LD_condition)  ##this function will provide the card to play
+                        card, idx_card = self.ai_agent.ai_choose_card(input_tensor, LD_condition)  ##this function will provide the card to play
                     else:
                         LD_condition = -1 #means there no condition
-                        card = self.ai_agent.ai_choose_card(input_tensor, LD_condition)
+                        card, idx_card = self.ai_agent.ai_choose_card(input_tensor, LD_condition)
                 else:
                     LD_condition = -1 #means there no condition
-                    card = self.ai_agent.ai_choose_card(input_tensor, LD_condition)
+                    card, idx_card = self.ai_agent.ai_choose_card(input_tensor, LD_condition)
 
-                ###TO REMOVE
-                # card = max(self.game.players[current_player], key=lambda x: x.custom_value)
+                ###add the end store the old input tensor
+                self.counter_played += 1
+                self.old_input_tensor = input_tensor
+                self.old_index_card_chosen = idx_card
+
             else:
                 raise Exception("Error with current player of players") 
 
@@ -291,6 +306,9 @@ class Training:
         #self.game.print_scores()
         self.game.print_overview_table()
 
+
+        ###HERE WE STORE important variables for update after a full round 
+
         #store for next round optimisation the state of this round
         self.state_old = self.states
         #print('print the rewards for the 4 players:', self.game.rewards[3])
@@ -336,6 +354,8 @@ class Training:
             #Play all the rounds of a full game
             for round_number in range(TOTAL_ROUNDS): 
                 self.play_round(round_number)
+
+
             #GAME LEVEL:
             # SAVING THE MODEL:
             #if NUMBER_GAMES % 10 == 0:
@@ -345,7 +365,6 @@ class Training:
             accumulated_rewards.append(self.total_round_reward) 
             #reward of alice
             alice_acc_rewards.append(self.alice_total_round_reward)
-
 
             #You can win a big reward at the end of game 
             big_reward = self.assign_points(self.game.scores, 3)

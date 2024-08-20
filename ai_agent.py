@@ -35,8 +35,8 @@ class AIAgent:
         self.playing_state = None
         self.n_games = 0
         self.deck_size = deck_size
-        self.model = QNetwork(self.deck_size)
-        self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate)
+        self.bid_model = QNetwork(self.deck_size)
+        self.optimizer = optim.Adam(self.bid_model.parameters(), lr=learning_rate)
         self.gamma = gamma
         self.criterion = nn.MSELoss()
         self.epsilon = epsilon  # Exploration rate
@@ -61,24 +61,13 @@ class AIAgent:
     def create_mask(self, input_tensor, LD_condition):
         # Select the first 17 columns corresponding to the card encoding (assuming card info is in the first 15 features)
         card_features = input_tensor[:8, :17]
+        print(f"card features: {card_features}")
         # Create a mask: rows with all 0s in the first 17 features should be masked
         if LD_condition == -1:
-            zero_card_mask = (card_features.sum(dim=1) == 0).float() * -1e9
-            print(f"card features: {card_features}")
+            zero_card_mask = (card_features.sum(dim=1) != 0).float() 
             print(f"zero card mask{zero_card_mask}")
             # Expand the mask to match the shape of the logits (rows for cards)
             mask = zero_card_mask.unsqueeze(1)  # Convert to column vector
-
-        # elif LD_condition >= 0 and LD_condition<4: #One of the suits is leading
-        #     zero_card_mask = (card_features.sum(dim=1) == 0).float() * -1e9
-        #     print(f"card features: {card_features}")
-        #     print(f"zero card mask{zero_card_mask}")
-        #     print("TESTTTTT")
-
-        #     # Expand the mask to match the shape of the logits (rows for cards)
-        #     mask = zero_card_mask.unsqueeze(1)  # Convert to column vector
-        # else:
-        #     raise ValueError("Invalid LD_condition")
 
         elif 0 <= LD_condition < 4:  # One of the suits is leading
             # Extract the suit features (last 4 features)
@@ -87,7 +76,7 @@ class AIAgent:
             
             # Create mask for the cards that match the LD_condition suit
             suit_mask = suit_features[:, LD_condition] > 0
-            print(f"card features: {card_features}")
+            
             print(f"suit features: {suit_features}")
             print(f"suit mask: {suit_mask.float()}")
             
@@ -111,18 +100,15 @@ class AIAgent:
         Returns:
         - Card: The selected card with the highest probability.
         """
-        # Compute the sum of each row in the output tensor
-        row_sums = output_tensor.sum(dim=1)
-        
-        # Find the index of the row with the highest sum
-        max_row_index = row_sums.argmax().item()
-        
+
+        max_value_index = output_tensor.argmax().item() 
+
         # Retrieve the corresponding row from the input tensor
-        selected_row = input_tensor[max_row_index]
+        selected_row = input_tensor[max_value_index]
         
         # For demonstration purposes, assuming the row is a card
-        print(f"For testing this is the selected row: {selected_row}")
-        return selected_row
+        print(f"For testing this is the selected row index: {max_value_index}")
+        return selected_row, max_value_index
 
 
     def tensor_to_card(self, tensor_row):
@@ -159,11 +145,11 @@ class AIAgent:
             if random.random() < self.epsilon:  # With probability ε, explore
                 bid = random.randint(0, self.deck_size)  # Assuming there are 5 possible actions (0 to 4)
             else:  # With probability 1 - ε, exploit
-                prediction = self.model(x)  # Forward pass
+                prediction = self.bid_model(x)  # Forward pass
                 bid = torch.argmax(prediction).item()
         else:
             while True:
-                prediction = self.model(x)  #forward pass
+                prediction = self.bid_model(x)  #forward pass
                 bid = torch.argmax(prediction).item()
                 if bid + self.sum_bids != self.deck_size:
                     break
@@ -181,29 +167,41 @@ class AIAgent:
         mask = self.create_mask(input_tensor, LD_condition)
         # Call the forward function to get logits
         logits = self.card_model.forward(input_tensor)
+        print(f"Logits after forward pass: {logits}")
         # Apply the mask and softmax to get the probabilities
-        output_tensor = self.card_model.masked_softmax(logits, mask)
-        tensor_row = self.select_row(output_tensor, input_tensor)
+        output_tensor = self.card_model.masked_softmax(logits, mask) ##this is the final output of the model
+        print(f"Output tensorrr: {output_tensor}")
+
+        #DECODING BACK to card 
+        tensor_row, index_card = self.select_row(output_tensor, input_tensor)
         # Convert tensor row to Card
         selected_card = self.tensor_to_card(tensor_row)
         print("Selected Card:", selected_card)
-        return selected_card
+        return selected_card, index_card
 
     
     #UPDATE MODEL --> 
-    def update(self, state, action, reward, next_state, done):
+    def update(self, model, state, action, reward, next_state, done):
         """Update the Q-values based on experience"""
         # Compute the target
         with torch.no_grad():
             target = reward
             if not done:
-                next_q_values = self.model(next_state)
-                target += self.gamma * torch.max(next_q_values)
+                next_q_values = model(next_state) #forward pass on next state
+                target += self.gamma * torch.max(next_q_values)  #discount factor x the max argument action
         
         # Compute the current Q-value
-        q_values = self.model(state)
-        print('q_values:', q_values)
-        q_value = q_values[action]
+        print(f"state shape: {state.shape}")
+        q_values = model(state)  #forward pass returns a 1x8 tensor
+        print('q_values:', q_values) 
+        print('q_values shape:', q_values.shape) 
+        print(f"action: {action}")  #action should be the card index such that it is understandable for code
+
+        #depending on the model:
+        if model ==  self.bid_model:
+            q_value = q_values[action] 
+        if model ==  self.card_model:
+            q_value = q_values[0, action] 
 
         # Compute loss and update model
         #loss = self.criterion(q_value, target)

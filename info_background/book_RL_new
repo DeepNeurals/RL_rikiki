@@ -27,8 +27,18 @@ Q-value: only 1 number? -> the state is a 1x9 tensor? Does that make sense??
 The analysis shows that the model learn to tell one: Indeed on the long run, the true bid is often between 1.0 and 1.2. 
 By saying 1 the AI-agent has the biggest chance of winning. Even in a game with 8 cards in the hand, the average true bid is only 1.8. 
 The model could learn to say the best bid at every specific round, but that is not happening. The output is not related to the state. 
+Using Q-learning is was thus found that the action that gives the highest reward is bidding:1. 
 
-What I wanted to check now is if the average shifts with more conservative players or not.
+
+What I wanted to check now is if the average shifts with more conservative players or not. For this I will make all the players bid like a conservative player. 
+==> We observe that when all the players play very conservatively, the AI agent bids higher on average. 
+
+--> We can conclude that the model needs a bigger memory, such that it can understand these shifts faster and per round. 
+
+-> Lets try to complexify the model
+
+After that we will try to improve the Q-value update, need to read chapter 2 for that. 
+
 
 
 

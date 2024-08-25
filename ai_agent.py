@@ -30,7 +30,7 @@ class CustomCard(pydealer.Card):
 
 
 class AIAgent:
-    def __init__(self, learning_rate, deck_size, total_rounds, gamma=0.99, epsilon=0.30):
+    def __init__(self, learning_rate, deck_size, total_rounds, gamma=0.99, epsilon=0.9):
         self.agent_state = None
         self.playing_state = None
         self.n_games = 0

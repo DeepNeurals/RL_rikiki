@@ -20,9 +20,9 @@ def generate_random_state():
     num_queens = random.randint(0, 5)       # Example range for num_queens
     num_atouts = random.randint(0, 5)       # Example range for num_atouts
     deck_size = random.randint(0, 8)       # Example range for deck_size
-    p1_bid = random.randint(0, deck_size)         # Example range for p1_bid
-    p2_bid = random.randint(0, deck_size)         # Example range for p2_bid
-    p3_bid = random.randint(0, deck_size)         # Example range for p3_bid
+    p1_bid = 0        # Example range for p1_bid
+    p2_bid = 0        # Example range for p2_bid
+    p3_bid = 0        # Example range for p3_bid
 
     # Create the state list
     state = [num_aces, num_kings, num_queens, num_atouts, deck_size, p1_bid, p2_bid, p3_bid]

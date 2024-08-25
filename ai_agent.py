@@ -30,12 +30,13 @@ class CustomCard(pydealer.Card):
 
 
 class AIAgent:
-    def __init__(self, deck_size, state_size, total_rounds, epsilon=0.05, gamma=0.99, lr=0.5, memory_size=1000000, batch_size=256):
+    def __init__(self, deck_size, state_size, total_rounds, epsilon=0.05, gamma=0.99, lr=0.5, memory_size=10000, batch_size=32):
         self.agent_state = None
         self.playing_state = None
         self.n_games = 0
         self.deck_size = deck_size
-        self.bid_model = QNetwork(state_size, total_rounds) #total rounds = action_size-1
+        self.action_size = total_rounds + 1
+        self.bid_model = QNetwork(state_size, self.action_size) #total rounds = action_size-1
         self.epsilon = epsilon
         self.gamma = gamma
         self.lr = lr
@@ -135,14 +136,15 @@ class AIAgent:
 
     
     ##FUNCION 1: that interferes with the Rikiki_game
-    def make_bid(self, x, deck_size):
+    def make_bid(self, x):
         # x = self.agent_state #last state information we have
         #print(f"Given this last state: {x} the agents make the following bid")
+        if self.position_bidders != 4:  # You are not last, you can bid whatever you want\
+        
+            # In A low probability select randomly an action from the action_size 
+            if random.random() < self.epsilon:  
+                bid = random.randint(0, self.action_size-1)  # Assuming there are 5 possible actions (0 to 4)
 
-        if self.position_bidders != 4:  # You are not last, you can bid whatever you want
-            # ε-greedy action selection
-            if random.random() < self.epsilon:  # With probability ε, explore
-                bid = random.randint(0, deck_size)  # Assuming there are 5 possible actions (0 to 4)
             else:  # With probability 1 - ε, exploit
                 prediction = self.bid_model(x)  # Forward pass
                 #print(f"Output of bidding model: {prediction}")
@@ -183,9 +185,13 @@ class AIAgent:
     #UPDATE BID MODEL --> 
     def update_bid_model(self, state, action, reward, next_state, done):
         """Update the Q-values based on experience replay"""
+        #print(f"Memory:{self.memory}")
         if len(self.memory) < self.batch_size:
             return
+        
         batch = random.sample(self.memory, self.batch_size)
+        #print(f"Batch:{batch}")
+
         for state, action, reward, next_state, done in batch:
             state = torch.tensor(state, dtype=torch.float32)
             next_state = torch.tensor(next_state, dtype=torch.float32)
@@ -214,35 +220,35 @@ class AIAgent:
         self.optimizer.step()
 
 
-         #UPDATE PLAY MODEL --> later
-    def update_play_model(self, state, action, reward, next_state, done):
-        """Update the Q-values based on experience"""
-        # Compute the target
-        with torch.no_grad():
-            target = reward  #Basically the target is the value of that state
-            if not done:
-                #print(f"next state: {next_state}")  
-                next_q_values = self.card_model(next_state) #forward pass on next state
+    #      #UPDATE PLAY MODEL --> later
+    # def update_play_model(self, state, action, reward, next_state, done):
+    #     """Update the Q-values based on experience"""
+    #     # Compute the target
+    #     with torch.no_grad():
+    #         target = reward  #Basically the target is the value of that state
+    #         if not done:
+    #             #print(f"next state: {next_state}")  
+    #             next_q_values = self.card_model(next_state) #forward pass on next state
 
-                #print(f"next q-values: {next_q_values}")
-                target += self.gamma * torch.max(next_q_values)  #discount factor x the max argument action
-                #print(f"target: {target}")
+    #             #print(f"next q-values: {next_q_values}")
+    #             target += self.gamma * torch.max(next_q_values)  #discount factor x the max argument action
+    #             #print(f"target: {target}")
         
-        # Compute the current Q-value
-        #print(f"state shape: {state.shape}")
-        q_values = self.card_model(state)  #forward pass returns a 1x8 tensor
-        #print('q_values:', q_values) 
-        #print('q_values shape:', q_values.shape) 
-        #print(f"current deck_size: {self.deck_size}")
-        #print(f"action: {action}")  #action should be the card index such that it is understandable for code
-        #depending on the model:
-        q_value = q_values[0, action] 
-        # Compute the loss
-        loss = self.criterion(q_value, torch.tensor([target], dtype=torch.float32))
-        self.optimizer.zero_grad()
-        loss.backward()
-        #update the model parameters: 
-        self.optimizer.step()
+    #     # Compute the current Q-value
+    #     #print(f"state shape: {state.shape}")
+    #     q_values = self.card_model(state)  #forward pass returns a 1x8 tensor
+    #     #print('q_values:', q_values) 
+    #     #print('q_values shape:', q_values.shape) 
+    #     #print(f"current deck_size: {self.deck_size}")
+    #     #print(f"action: {action}")  #action should be the card index such that it is understandable for code
+    #     #depending on the model:
+    #     q_value = q_values[0, action] 
+    #     # Compute the loss
+    #     loss = self.criterion(q_value, torch.tensor([target], dtype=torch.float32))
+    #     self.optimizer.zero_grad()
+    #     loss.backward()
+    #     #update the model parameters: 
+    #     self.optimizer.step()
 
     #function to save a model to a specific filename
     @staticmethod

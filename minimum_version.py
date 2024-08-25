@@ -117,14 +117,15 @@ class Training:
             # self.ALICE_action = bid
             
         # AI Player: here the AI agent makes the bid
-        elif player_num == self.game.ai_player_index:
+        elif player_num == self.game.ai_player_index:   
             self.ai_agent.sum_bids = total_bid_sum
             self.ai_agent.position_bidders = self.counter_of_past_bidders
 
             #Before bidding retrieve the states of the AI-player
             self.states = self.game.update_game_state(self.ai_player_index)
+            self.ai_agent.memory.append((self.state_old, self.AI_action, self.AI_reward, self.states, self.done))
 
-            bid = self.ai_agent.make_bid(self.states, self.game.current_deck_size) #in this function the forward pass happens
+            bid = self.ai_agent.make_bid(self.states) #in this function the forward pass happens
             #print('The AI agent made its choice', bid)
             self.AI_bid = bid
         
@@ -452,7 +453,7 @@ class Training:
 
 if __name__ == "__main__":
     #global parameters
-    NUMBER_GAMES = 15000; TOTAL_ROUNDS=8 
+    NUMBER_GAMES = 300; TOTAL_ROUNDS=8 
     # Create the 'outputs' folders
     image_output_dir = 'image_outputs'
     os.makedirs(image_output_dir, exist_ok=True)

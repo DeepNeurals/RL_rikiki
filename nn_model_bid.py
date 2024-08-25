@@ -14,3 +14,4 @@ class QNetwork(nn.Module):
         x = torch.relu(self.fc2(x))  # Activation function
         x = self.fc3(x)              # No activation on output
         return x
+

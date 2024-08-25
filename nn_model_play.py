@@ -40,5 +40,4 @@ class CardSelectionNN(nn.Module):
 
         # Apply softmax to get probabilities
         softmax_output = F.softmax(masked_logits, dim=1)  # Apply softmax across the row
-        
         return softmax_output

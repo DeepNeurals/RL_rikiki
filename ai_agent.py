@@ -40,8 +40,9 @@ class AIAgent:
         self.gamma = gamma
         self.criterion = nn.MSELoss()
         self.epsilon = epsilon  # Exploration rate
-        self.losses = []  # List to store loss values
+        self.losses_bid = []  # List to store loss values
         self.card_model = CardSelectionNN()
+        self.losses_card = []  # List to store loss values
 
         #for checking condition bid
         self.sum_bids = 0
@@ -135,7 +136,7 @@ class AIAgent:
     ##FUNCION 1: that interferes with the Rikiki_game
     def make_bid(self):
         x = self.agent_state #last state information we have
-        print(f"Given this last state: {x} the agents make the following bid")
+        #print(f"Given this last state: {x} the agents make the following bid")
 
         # if self.position_bidders != 4: #you are not last, you can bid whatever you want
         #     prediction = self.model(x)  #forward pass
@@ -146,6 +147,7 @@ class AIAgent:
                 bid = random.randint(0, self.deck_size)  # Assuming there are 5 possible actions (0 to 4)
             else:  # With probability 1 - ε, exploit
                 prediction = self.bid_model(x)  # Forward pass
+                print(f"Output of bidding model: {prediction}")
                 bid = torch.argmax(prediction).item()
         else:
             while True:
@@ -162,21 +164,21 @@ class AIAgent:
         blue_text = "\033[34m"  # Blue text
         reset_text = "\033[0m"  # Reset to default color
         # Print in blue
-        print(f"{blue_text}LD_condition: {LD_condition}{reset_text}")
+        #print(f"{blue_text}LD_condition: {LD_condition}{reset_text}")
         # Create the mask for nul vectors and if LD is active, masks non leading cards
         mask = self.create_mask(input_tensor, LD_condition)
         # Call the forward function to get logits
         logits = self.card_model.forward(input_tensor)
-        print(f"Logits after forward pass: {logits}")
+        #print(f"Logits after forward pass: {logits}")
         # Apply the mask and softmax to get the probabilities
         output_tensor = self.card_model.masked_softmax(logits, mask) ##this is the final output of the model
-        print(f"Output tensorrr: {output_tensor}")
+        #print(f"Output tensorrr: {output_tensor}")
 
         #DECODING BACK to card 
         tensor_row, index_card = self.select_row(output_tensor, input_tensor)
         # Convert tensor row to Card
         selected_card = self.tensor_to_card(tensor_row)
-        print("Selected Card:", selected_card)
+        #print("Selected Card:", selected_card)
         return selected_card, index_card
 
     
@@ -191,11 +193,11 @@ class AIAgent:
                 target += self.gamma * torch.max(next_q_values)  #discount factor x the max argument action
         
         # Compute the current Q-value
-        print(f"state shape: {state.shape}")
+        #print(f"state shape: {state.shape}")
         q_values = model(state)  #forward pass returns a 1x8 tensor
-        print('q_values:', q_values) 
-        print('q_values shape:', q_values.shape) 
-        print(f"action: {action}")  #action should be the card index such that it is understandable for code
+        #print('q_values:', q_values) 
+        #print('q_values shape:', q_values.shape) 
+        #print(f"action: {action}")  #action should be the card index such that it is understandable for code
 
         #depending on the model:
         if model ==  self.bid_model:
@@ -210,13 +212,18 @@ class AIAgent:
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-        # Print the loss value
-        print(f"\033[91mLoss: {loss.item()}\033[0m")
+        # # Print the loss value
+        # print(f"\033[91mLoss: {loss.item()}\033[0m")
         # Store the loss value
-        self.losses.append(loss.item())
+        if model ==  self.bid_model:
+            self.losses_bid.append(loss.item())
+        if model ==  self.card_model:
+            self.losses_card.append(loss.item())
 
     #function to save a model to a specific filename
     @staticmethod
     def save_model(model, filename):
         torch.save(model.state_dict(), filename)
+
+    
     

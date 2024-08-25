@@ -1,0 +1,22 @@
+An episode: the resulting trajectory from start to terminal state is called an episode of trial. 
+
+terminal states as: - absorbing states; reduce the action space at that terminal state
+			- normal state; but give a reward for staying in it
+			
+			
+			
+So basically the idea of the bidding model:
+- learn the optimal bid to make in function of the number of cards, based on learned games we can come up with a number: for 2 cards upto 8 cards. 
+
+--> I believe Rikiki is a stationary problem, the rules do not evolve over time. 
+
+The reward depends on: R(s,a) and s'. But since s' depends on s, a we can rewrite it like that. 
+
+
+--> Using the founded model information we will use this optimal bid, and learn the AI to play accordingly to win. 
+Summarised: we want to learn the AI to win when needed, and lose when needed. 
+
+If I can show that my model, given a hand of cards is able to play to lose and to win, we can conclude that the model learned how to play well. 
+
+
+

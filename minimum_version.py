@@ -2,7 +2,6 @@
 
 from rikiki_game_AI import RikikiGame
 from ai_agent import AIAgent
-import random
 import torch
 import matplotlib.pyplot as plt
 from collections import defaultdict
@@ -23,6 +22,7 @@ class Training:
         self.alice_ai_agent = alice_ai_agent
         self.ALICE_player_index = ALICE_player_index
         self.states = None
+
         #for learning initialise these
         self.state_old = torch.zeros(1,8)
         self.state_alice_old = torch.zeros(1,8)
@@ -42,8 +42,6 @@ class Training:
         self.alice_states = None
 
         # #for Card NN update
-        # self.old_input_tensor = torch.zeros(11,19)
-        # self.old_ai_card_chosen = defaultdict
         self.counter_played = 0
 
     def bidding_phase(self):
@@ -390,7 +388,7 @@ class Training:
         actual_counts = np.bincount(self.list_actual)
 
         # Creating a single figure with three subplots
-        fig, axs = plt.subplots(3, 1, figsize=(12, 18))
+        fig, axs = plt.subplots(2, 1, figsize=(12, 18))
 
         # First subplot: Rewards over Time
         axs[0].plot(accumulated_rewards,color='green', label='AI Game Reward')
@@ -413,27 +411,28 @@ class Training:
         # Add a legend
         axs[1].legend()
 
-        # Third subplot: Loss Curve
-        axs[2].plot(self.ai_agent.losses, label='Training Loss')
-        axs[2].set_xlabel('Training Steps')
-        axs[2].set_ylabel('Loss')
-        axs[2].set_title('Loss Curve')
-        axs[2].legend()
-        axs[2].grid(True)
+        # # Third subplot: Loss Curve
+        # axs[2].plot(self.ai_agent.losses_card, label='Training Loss')
+        # axs[2].set_xlabel('Training Steps')
+        # axs[2].set_ylabel('Loss')
+        # axs[2].set_title('Loss Curve')
+        # axs[2].legend()
+        # axs[2].grid(True)
+
         # Adjust layout to prevent overlap
-        plt.tight_layout()
+        # plt.tight_layout()
         plt.show()
 
 
 if __name__ == "__main__":
     #hyperparameters 
-    LR = 0.001 #0.010 
+    LR = 0.1 #0.010 
     #global parameters
     NUMBER_GAMES = 10; TOTAL_ROUNDS=12 #actually here the number of games are equal to number of rounds since a game has 1 round. Total rounds= number of ticks per round
     #game parameters 
     num_players = 4  # Adjust as needed
     #Starting Player's order
-    conservative_player_index = 0  # The first player is the conservative player
+    conservative_player_index = 0  # The JOE first player is the conservative player
     BOB_player_index = 1 #Bob is second to play
     ALICE_player_index = 2 # ALice is third to play
     ai_player_index = 3  # The last player is the AI agent

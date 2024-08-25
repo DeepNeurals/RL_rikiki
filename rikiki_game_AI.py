@@ -170,26 +170,27 @@ class RikikiGame:
     
         # Extract relevant game state information
         num_aces = game_state.get("num_aces_in_hand", 0)
-        num_kings = game_state.get("num_kings_in_hand", 0)
-        num_queens = game_state.get("num_queens_in_hand", 0)
+        # num_kings = game_state.get("num_kings_in_hand", 0)
+        # num_queens = game_state.get("num_queens_in_hand", 0)
         num_atout_cards = game_state.get("num_atout_cards_in_hand", 0)
         current_deck_size = game_state.get("current_deck_size", 0)
-        player_1_bid = game_state.get("player_1_bid")
-        player_1_bid = -1 if player_1_bid is None else player_1_bid
-        player_2_bid = game_state.get("player_2_bid")
-        player_2_bid = -1 if player_2_bid is None else player_2_bid
-        player_3_bid = game_state.get("player_3_bid")
-        player_3_bid = -1 if player_3_bid is None else player_3_bid
+        # player_1_bid = game_state.get("player_1_bid")
+        # player_1_bid = -1 if player_1_bid is None else player_1_bid
+        # player_2_bid = game_state.get("player_2_bid")
+        # player_2_bid = -1 if player_2_bid is None else player_2_bid
+        # player_3_bid = game_state.get("player_3_bid")
+        # player_3_bid = -1 if player_3_bid is None else player_3_bid
 
-        # player_1_bid = game_state.get("player_1_bid", 0) if game_state.get("player_1_bid") is not None else -1
-        # player_2_bid = game_state.get("player_2_bid", 0) if game_state.get("player_2_bid") is not None else -1
-        # player_3_bid = game_state.get("player_3_bid", 0) if game_state.get("player_3_bid") is not None else -1
-        #scores_AI_player = self.scores[self.ai_player_index] #removed from state_space to reduce complexity
         # Encode game state information into a tensor  
+        # state_representation = torch.tensor([
+        #     num_aces, num_kings, num_queens, num_atout_cards, current_deck_size,
+        #     player_1_bid, player_2_bid, player_3_bid
+        # ], dtype=torch.float)   
+        
+        #reduced version for learning 
         state_representation = torch.tensor([
-            num_aces, num_kings, num_queens, num_atout_cards, current_deck_size,
-            player_1_bid, player_2_bid, player_3_bid
-        ], dtype=torch.float)   #state is a 8x1 tensor, remove the score of AI player
+            num_aces, num_atout_cards, current_deck_size
+        ], dtype=torch.float)  #state is a 1x3 tensor
         return state_representation
 
     #Input tensor encoding -------

@@ -29,8 +29,7 @@ class Training:
         self.states = None
 
         #for learning initialise these
-        self.state_old = torch.zeros(1,8)
-        self.state_alice_old = torch.zeros(1,8)
+        self.state_old = torch.zeros(1,3)
         self.AI_action = 0
         self.AI_bid = 0 
         self.AI_reward  = 0
@@ -124,9 +123,8 @@ class Training:
 
             #Before bidding retrieve the states of the AI-player
             self.states = self.game.update_game_state(self.ai_player_index)
-            self.ai_agent.update_agent_state(self.states) 
 
-            bid = self.ai_agent.make_bid() #in this function the forward pass happens
+            bid = self.ai_agent.make_bid(self.states, self.game.current_deck_size) #in this function the forward pass happens
             #print('The AI agent made its choice', bid)
             self.AI_bid = bid
         
@@ -156,22 +154,22 @@ class Training:
 
         return winning_card, winning_player_role
 
-    #assign points based on leadership position
-    def assign_points(self, leadership_points, player_index):
-        list_points  =  list(leadership_points.values())
-        max_point = max(list_points)
-        index_player = list_points.index(max_point)
-        # print('Type of self.game.scores:', type(leadership_points))
-        #print('Content of self.game.scores:', leadership_points)
-        # print('leadership points values:', list(leadership_points.values()))
-        #print('max points values:', max_point)
-        # print('index of player', index_player)
-        if index_player ==player_index and max_point>0:
-            return 300
-        elif index_player==player_index:
-            return 50
-        else:
-            return 0
+    # #assign points based on leadership position
+    # def assign_points(self, leadership_points, player_index):
+    #     list_points  =  list(leadership_points.values())
+    #     max_point = max(list_points)
+    #     index_player = list_points.index(max_point)
+    #     # print('Type of self.game.scores:', type(leadership_points))
+    #     #print('Content of self.game.scores:', leadership_points)
+    #     # print('leadership points values:', list(leadership_points.values()))
+    #     #print('max points values:', max_point)
+    #     # print('index of player', index_player)
+    #     if index_player ==player_index and max_point>0:
+    #         return 300
+    #     elif index_player==player_index:
+    #         return 50
+    #     else:
+    #         return 0
 
     def play_all_tricks(self): #play all tricks in the current round
         for _ in range(self.game.current_deck_size):
@@ -454,7 +452,7 @@ class Training:
 
 if __name__ == "__main__":
     #global parameters
-    NUMBER_GAMES = 300; TOTAL_ROUNDS=8 
+    NUMBER_GAMES = 15000; TOTAL_ROUNDS=8 
     # Create the 'outputs' folders
     image_output_dir = 'image_outputs'
     os.makedirs(image_output_dir, exist_ok=True)
@@ -470,8 +468,6 @@ if __name__ == "__main__":
     action_FILE_PATH = f'{csv_output_dir}/scores{timestamp}.csv'
     model_filename = f'{bid_model_output_dir}/model{timestamp}_{NUMBER_GAMES}.pth'
     
-    #Model hyperparameters 
-    LR = 0.1 #0.010 
     #game parameters 
     num_players = 4  # Adjust as needed
     #Starting Player's order
@@ -482,14 +478,15 @@ if __name__ == "__main__":
 
     #we start with 2 cards in the hand
     starting_deck_size = 2
+    state_size = 3
 
     # Create game instance: initialises all attributes
     game = RikikiGame(num_players, ai_player_index, conservative_player_index, BOB_player_index, ALICE_player_index, starting_deck_size) #only play rounds of 3 cards
     # #create an ai_agent instance of class AIAgent
-    ai_agent = AIAgent(LR, starting_deck_size, TOTAL_ROUNDS)
+    ai_agent = AIAgent(starting_deck_size, state_size, TOTAL_ROUNDS)
 
     #ALICE ai_agent instance 
-    alice_ai_agent = AIAgent(LR, starting_deck_size, TOTAL_ROUNDS)
+    alice_ai_agent = AIAgent(starting_deck_size, state_size, TOTAL_ROUNDS)
 
     #start one game
     trainer = Training(game, ai_agent, alice_ai_agent, ai_player_index, ALICE_player_index)

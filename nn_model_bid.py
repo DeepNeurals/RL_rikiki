@@ -3,12 +3,12 @@ import torch.nn as nn
 import torch.optim as optim
 
 class QNetwork(nn.Module):
-    def __init__(self, total_rounds):
+    def __init__(self, state_size, total_rounds):
         super(QNetwork, self).__init__()
-        self.fc1 = nn.Linear(8, 128)  # Input layer to first hidden layer
-        self.fc2 = nn.Linear(128, 64)  # Hidden layer to hidden layer
+        self.fc1 = nn.Linear(state_size, 128)  # Input layer to first hidden layer  #with lower input state
+        self.fc2 = nn.Linear(128, 128)  # Hidden layer to hidden layer
         #print(f" total_rounds: {total_rounds}")
-        self.fc3 = nn.Linear(64, total_rounds+1)   # Hidden layer to output layer (4 actions), lets make this output a 1x9 tensor so it can learn
+        self.fc3 = nn.Linear(128, total_rounds+1)   # Hidden layer to output layer (4 actions), lets make this output a 1x9 tensor so it can learn
                                                 #for 8 cards in hand the best strategy
 
     def forward(self, x):

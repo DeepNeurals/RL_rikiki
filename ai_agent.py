@@ -30,33 +30,31 @@ class CustomCard(pydealer.Card):
 
 
 class AIAgent:
-    def __init__(self, learning_rate, deck_size, total_rounds, gamma=0.99, epsilon=0.9):
+    def __init__(self, deck_size, state_size, total_rounds, epsilon=0.05, gamma=0.99, lr=0.5, memory_size=1000000, batch_size=256):
         self.agent_state = None
         self.playing_state = None
         self.n_games = 0
         self.deck_size = deck_size
-        self.bid_model = QNetwork(total_rounds)
-        # Move model to GPU
-        # if torch.cuda.is_available():
-        #     model = model.to('cuda')
-
-        self.optimizer = optim.Adam(self.bid_model.parameters(), lr=learning_rate)
+        self.bid_model = QNetwork(state_size, total_rounds) #total rounds = action_size-1
+        self.epsilon = epsilon
         self.gamma = gamma
+        self.lr = lr
+        self.memory_size = memory_size
+        self.batch_size = batch_size
+        self.optimizer = optim.Adam(self.bid_model.parameters(), lr=lr)
         self.criterion = nn.MSELoss()
-        self.epsilon = epsilon  # Exploration rate
+        self.memory = deque(maxlen=memory_size)
+        self.optimizer = optim.Adam(self.bid_model.parameters(), lr=lr)
         self.losses_bid = []  # List to store loss values
+
+        #For PlayingModel
         self.card_model = CardSelectionNN()
         self.losses_card = []  # List to store loss values
 
         #for checking condition bid
         self.sum_bids = 0
         self.position_bidders = 0
-    
-    #receive the game-state from the main.py Game
-    def update_agent_state(self, game_state):
-        self.agent_state = game_state
-        self.deck_size = game_state[4].item()
-        #print(' test check for deck size:', self.deck_size)
+
 
     #called every time the AI needs to play a card
     def update_playing_state(self, playing_state):
@@ -115,7 +113,6 @@ class AIAgent:
         print(f"For testing this is the selected row index: {max_value_index}")
         return selected_row, max_value_index
 
-
     def tensor_to_card(self, tensor_row):
         """
         Convert a tensor row representing a card back into a Card object.
@@ -138,17 +135,14 @@ class AIAgent:
 
     
     ##FUNCION 1: that interferes with the Rikiki_game
-    def make_bid(self):
-        x = self.agent_state #last state information we have
+    def make_bid(self, x, deck_size):
+        # x = self.agent_state #last state information we have
         #print(f"Given this last state: {x} the agents make the following bid")
 
-        # if self.position_bidders != 4: #you are not last, you can bid whatever you want
-        #     prediction = self.model(x)  #forward pass
-        #     bid = torch.argmax(prediction).item()
         if self.position_bidders != 4:  # You are not last, you can bid whatever you want
             # ε-greedy action selection
             if random.random() < self.epsilon:  # With probability ε, explore
-                bid = random.randint(0, self.deck_size)  # Assuming there are 5 possible actions (0 to 4)
+                bid = random.randint(0, deck_size)  # Assuming there are 5 possible actions (0 to 4)
             else:  # With probability 1 - ε, exploit
                 prediction = self.bid_model(x)  # Forward pass
                 #print(f"Output of bidding model: {prediction}")
@@ -188,21 +182,28 @@ class AIAgent:
     
     #UPDATE BID MODEL --> 
     def update_bid_model(self, state, action, reward, next_state, done):
-        """Update the Q-values based on experience"""
+        """Update the Q-values based on experience replay"""
+        if len(self.memory) < self.batch_size:
+            return
+        batch = random.sample(self.memory, self.batch_size)
+        for state, action, reward, next_state, done in batch:
+            state = torch.tensor(state, dtype=torch.float32)
+            next_state = torch.tensor(next_state, dtype=torch.float32)
+            action = torch.tensor(action, dtype=torch.long)
+            reward = torch.tensor(reward, dtype=torch.float32)
+
         # Compute the target
         with torch.no_grad():
             target = reward  #Basically the target is the value of that state
             if not done:
                 #print(f"next state: {next_state}")  
                 next_q_values = self.bid_model(next_state) #forward pass on next state
-
                 #print(f"next q-values: {next_q_values}")
                 target += self.gamma * torch.max(next_q_values)  #discount factor x the max argument action
                 #print(f"target: {target}")
         
         # Compute the current Q-value
-        #print(f"state shape: {state.shape}")
-        q_values = self.bid_model(state)  #forward pass returns a 1x8 tensor
+        q_values = self.bid_model(state)  #forward pass returns a 1x3 tensor
         q_value = q_values[action] 
 
         # Compute the loss

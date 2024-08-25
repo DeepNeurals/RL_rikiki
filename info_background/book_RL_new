@@ -19,4 +19,16 @@ Summarised: we want to learn the AI to win when needed, and lose when needed.
 If I can show that my model, given a hand of cards is able to play to lose and to win, we can conclude that the model learned how to play well. 
 
 
+https://github.com/MathFoundationRL/Book-Mathematical-Foundation-of-Reinforcement-Learning/tree/main
+
+
+Q-value: only 1 number? -> the state is a 1x9 tensor? Does that make sense??
+
+The analysis shows that the model learn to tell one: Indeed on the long run, the true bid is often between 1.0 and 1.2. 
+By saying 1 the AI-agent has the biggest chance of winning. Even in a game with 8 cards in the hand, the average true bid is only 1.8. 
+The model could learn to say the best bid at every specific round, but that is not happening. The output is not related to the state. 
+
+What I wanted to check now is if the average shifts with more conservative players or not.
+
+
 

@@ -71,7 +71,7 @@ class RikikiGame:
     
     def select_atout(self):
         self.atout = self.deck.deal(1)[0]
-        print(f"Atout card: {self.atout}") 
+        # print(f"Atout card: {self.atout}") 
 
     #determine the winner of the pli in this trick based on: -leading suit & atout 
     def determine_winner(self, trick_cards, leading_suit):
@@ -102,10 +102,10 @@ class RikikiGame:
         for player_num in range(self.num_players):
             predicted = self.bids[player_num]
             actual = self.pli_scores[player_num]
-            if predicted == actual: #if correct you win 5 points + 1 point per correct pli
-                self.scores[player_num] += max(5, 5 * predicted) + actual
-                self.rewards[player_num] = max(5, 5 * predicted)
-            else: #if not correct you loose the difference between true pli and predicted
+            if predicted == actual: #if correct you win 5 points per correct predicted pli
+                self.scores[player_num] += max(5, 5 + (3 * predicted)) + actual
+                self.rewards[player_num] = max(5, 5 + (3 * predicted))  #5 for correct pli, and +3 per correctb pli. 
+            else: #if not correct you loose -2 per  difference between true pli and predicted
                 self.scores[player_num] -= (abs(predicted - actual))*2 #penalising the errors
                 self.rewards[player_num] = -abs(predicted-actual)*2  # penalising the errors
  
@@ -144,7 +144,7 @@ class RikikiGame:
             ]
             table_data.append(row)
         headers = ["Player", "Bid", "Actual Tricks","Reward", "Score"]
-        print("\nRound Overview:")
+        print(f"\nRound Overview - hand size: {self.current_deck_size}")
         print(tabulate(table_data, headers, tablefmt="grid"))
 
     

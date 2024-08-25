@@ -30,12 +30,16 @@ class CustomCard(pydealer.Card):
 
 
 class AIAgent:
-    def __init__(self, learning_rate, deck_size, gamma=0.99, epsilon=0.30):
+    def __init__(self, learning_rate, deck_size, total_rounds, gamma=0.99, epsilon=0.30):
         self.agent_state = None
         self.playing_state = None
         self.n_games = 0
         self.deck_size = deck_size
-        self.bid_model = QNetwork(self.deck_size)
+        self.bid_model = QNetwork(total_rounds)
+        # Move model to GPU
+        # if torch.cuda.is_available():
+        #     model = model.to('cuda')
+
         self.optimizer = optim.Adam(self.bid_model.parameters(), lr=learning_rate)
         self.gamma = gamma
         self.criterion = nn.MSELoss()
@@ -147,7 +151,7 @@ class AIAgent:
                 bid = random.randint(0, self.deck_size)  # Assuming there are 5 possible actions (0 to 4)
             else:  # With probability 1 - ε, exploit
                 prediction = self.bid_model(x)  # Forward pass
-                print(f"Output of bidding model: {prediction}")
+                #print(f"Output of bidding model: {prediction}")
                 bid = torch.argmax(prediction).item()
         else:
             while True:
@@ -182,43 +186,62 @@ class AIAgent:
         return selected_card, index_card
 
     
-    #UPDATE MODEL --> 
-    def update(self, model, state, action, reward, next_state, done):
+    #UPDATE BID MODEL --> 
+    def update_bid_model(self, state, action, reward, next_state, done):
         """Update the Q-values based on experience"""
         # Compute the target
         with torch.no_grad():
-            target = reward
+            target = reward  #Basically the target is the value of that state
             if not done:
-                next_q_values = model(next_state) #forward pass on next state
+                #print(f"next state: {next_state}")  
+                next_q_values = self.bid_model(next_state) #forward pass on next state
+
+                #print(f"next q-values: {next_q_values}")
                 target += self.gamma * torch.max(next_q_values)  #discount factor x the max argument action
+                #print(f"target: {target}")
         
         # Compute the current Q-value
         #print(f"state shape: {state.shape}")
-        q_values = model(state)  #forward pass returns a 1x8 tensor
-        #print('q_values:', q_values) 
-        #print('q_values shape:', q_values.shape) 
-        #print(f"action: {action}")  #action should be the card index such that it is understandable for code
+        q_values = self.bid_model(state)  #forward pass returns a 1x8 tensor
+        q_value = q_values[action] 
 
-        #depending on the model:
-        if model ==  self.bid_model:
-            q_value = q_values[action] 
-        if model ==  self.card_model:
-            q_value = q_values[0, action] 
-
-        # Compute loss and update model
-        #loss = self.criterion(q_value, target)
         # Compute the loss
         loss = self.criterion(q_value, torch.tensor([target], dtype=torch.float32))
         self.optimizer.zero_grad()
         loss.backward()
+        #update the model parameters: 
         self.optimizer.step()
-        # # Print the loss value
-        # print(f"\033[91mLoss: {loss.item()}\033[0m")
-        # Store the loss value
-        if model ==  self.bid_model:
-            self.losses_bid.append(loss.item())
-        if model ==  self.card_model:
-            self.losses_card.append(loss.item())
+
+
+         #UPDATE PLAY MODEL --> later
+    def update_play_model(self, state, action, reward, next_state, done):
+        """Update the Q-values based on experience"""
+        # Compute the target
+        with torch.no_grad():
+            target = reward  #Basically the target is the value of that state
+            if not done:
+                #print(f"next state: {next_state}")  
+                next_q_values = self.card_model(next_state) #forward pass on next state
+
+                #print(f"next q-values: {next_q_values}")
+                target += self.gamma * torch.max(next_q_values)  #discount factor x the max argument action
+                #print(f"target: {target}")
+        
+        # Compute the current Q-value
+        #print(f"state shape: {state.shape}")
+        q_values = self.card_model(state)  #forward pass returns a 1x8 tensor
+        #print('q_values:', q_values) 
+        #print('q_values shape:', q_values.shape) 
+        #print(f"current deck_size: {self.deck_size}")
+        #print(f"action: {action}")  #action should be the card index such that it is understandable for code
+        #depending on the model:
+        q_value = q_values[0, action] 
+        # Compute the loss
+        loss = self.criterion(q_value, torch.tensor([target], dtype=torch.float32))
+        self.optimizer.zero_grad()
+        loss.backward()
+        #update the model parameters: 
+        self.optimizer.step()
 
     #function to save a model to a specific filename
     @staticmethod

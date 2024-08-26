@@ -66,7 +66,7 @@ class Training:
         num_players = self.game.num_players
 
         # Joe (Conservative Player)
-        if player_num == self.game.conservative_player_index or player_num == self.game.BOB_player_index or player_num == self.game.ALICE_player_index:
+        if player_num == self.game.conservative_player_index:
             if self.counter_of_past_bidders != num_players:
                 bid = 0
                 #print('I bid whatever I want, I am not last!', self.counter_of_past_bidders)
@@ -79,27 +79,26 @@ class Training:
                     bid = 0
                     #print('Bidding zero works')
         
-        # # Bob (Liberal Player)
-        # elif player_num == self.game.BOB_player_index:
-        #     if self.counter_of_past_bidders == num_players:
-        #         bid = self.game.current_deck_size - total_bid_sum
-        #         #print(f'Bob bids {bid} as the last player')
-        #     else:
-        #         bid = self.game.current_deck_size
-            
-            
-        # # Alice (Random Bidder)
-        # elif player_num == self.game.ALICE_player_index:
-        #     # self.alice_states = self.game.update_game_state(self.ALICE_player_index) #define the state information
-        #     # self.alice_ai_agent.update_agent_state(self.alice_states) #pass the state informations
+        # Bob (Liberal Player)
+        elif player_num == self.game.BOB_player_index:
+            if self.counter_of_past_bidders == num_players:
+                bid = self.game.current_deck_size - total_bid_sum
+                #print(f'Bob bids {bid} as the last player')
+            else:
+                bid = self.game.current_deck_size
+               
+        # Alice (Random Bidder)
+        elif player_num == self.game.ALICE_player_index:
+            # self.alice_states = self.game.update_game_state(self.ALICE_player_index) #define the state information
+            # self.alice_ai_agent.update_agent_state(self.alice_states) #pass the state informations
 
-        #     if self.counter_of_past_bidders != num_players:
-        #         bid = random.randint(0, self.game.current_deck_size)
-        #     else:
-        #         while True:
-        #             bid = random.randint(0, self.game.current_deck_size)
-        #             if bid + total_bid_sum != self.game.current_deck_size:
-        #                 break
+            if self.counter_of_past_bidders != num_players:
+                bid = random.randint(0, self.game.current_deck_size)
+            else:
+                while True:
+                    bid = random.randint(0, self.game.current_deck_size)
+                    if bid + total_bid_sum != self.game.current_deck_size:
+                        break
 
         #-----------------------------------------------------------
             # #make ALice play like a AI-player  --> THIS IS WIP
@@ -118,6 +117,8 @@ class Training:
             
         # AI Player: here the AI agent makes the bid
         elif player_num == self.game.ai_player_index:   
+            # bid = 1  ##set like this to reduce the processing effort for the model
+            # self.AI_bid = bid
             self.ai_agent.sum_bids = total_bid_sum
             self.ai_agent.position_bidders = self.counter_of_past_bidders
 
@@ -128,10 +129,10 @@ class Training:
             bid = self.ai_agent.make_bid(self.states) #in this function the forward pass happens
             #print('The AI agent made its choice', bid)
             self.AI_bid = bid
-        
+
             #UPDATE bidding model with previous round information and new state 
-            self.ai_agent.update_bid_model(self.state_old, self.AI_action, self.AI_reward, self.states, self.done) #from previous round: state_old, AI_action, AI_reward #current: self.states
-            
+            self.ai_agent.update_bid_model(self.state_old, self.AI_action, self.AI_reward, self.states, self.done)
+        
         # Handle unexpected player numbers
         else:
             #print('Unexpected player index:', player_num)
@@ -301,13 +302,9 @@ class Training:
         self.game.current_deck_size = self.game.starting_deck_size + round_number ##added round number so from 0-8
         self.game.deal_cards(round_number)
         self.game.select_atout()
-
-        #get the bids from the 4 players
         self.bidding_phase() 
-        #play one full round
         self.play_all_tricks()  
-        #calculate the scores after one full round
-        self.game.calculate_scores()   #here the reward of the round is calculated
+        self.game.calculate_scores(self.states, self.AI_action)   #here the round reward is calculated
 
         #print the results
         #self.game.print_scores()
@@ -323,6 +320,8 @@ class Training:
 
         #reset the cards for next round card distribution
         self.game.reset_for_next_round() #--> end of round 
+
+
 
 
     ##Helper function 
@@ -354,6 +353,7 @@ class Training:
             self.store_score(self.game.scores[ai_player_index], current_game_actions, true_game_actions)
             current_game_actions.clear()
             true_game_actions.clear()
+            self.game.consec_wins_bonus = -1 
 
             #You can win a big reward at the end of game 
             # big_reward = self.assign_points(self.game.scores, 3)  ###removed BIG reward for analysis purposes
@@ -367,6 +367,7 @@ class Training:
 
         ##WHILE LOOP FINSIHED
         print(f"----GAME {NUMBER_GAMES} PLAYED---, started with game zero")
+        print(f"MAx consec wins: {self.game.max_consec}")
 
         # Load scores from the CSV file
         scores_df = pd.read_csv(CSV_FILE_PATH, header=None)
@@ -444,10 +445,8 @@ class Training:
         # plt.show()
         # Save the plot to a file
         plt.savefig(filename)
-
         # Close the figure to avoid display in interactive environments
         plt.close()
-
         print(f"Plot saved as {filename}")
 
 

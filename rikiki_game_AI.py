@@ -57,6 +57,8 @@ class RikikiGame:
         self.pli_scores = defaultdict(int)
         self.rewards = defaultdict(int)
         self.starting_player = 0
+        self.consec_wins_bonus = -1 #initiliase at start -1
+        self.max_consec = 0
          
     def deal_cards(self, round_number):
         self.deck.shuffle()
@@ -98,16 +100,24 @@ class RikikiGame:
         return winning_card, winning_player
 
     #calculate the scores for the round: based on predicted pli_scores and actual
-    def calculate_scores(self):
+    def calculate_scores(self, states, action):
         for player_num in range(self.num_players):
             predicted = self.bids[player_num]
             actual = self.pli_scores[player_num]
             if predicted == actual: #if correct you win 5 points per correct predicted pli
-                self.scores[player_num] += max(5, 5 + (3 * predicted)) + actual
-                self.rewards[player_num] = max(5, 5 + (3 * predicted))  #5 for correct pli, and +3 per correctb pli. 
+                self.consec_wins_bonus += 1 
+                print(f'store the correct state-action pair in the memory of the model')
+                self.rewards[player_num] = max(5, 5 + (3* predicted)) + self.consec_wins_bonus*40 #5 for correct pli, and +3 per correctb pli. 
+                self.scores[player_num] += self.rewards[player_num] 
             else: #if not correct you loose -2 per  difference between true pli and predicted
-                self.scores[player_num] -= (abs(predicted - actual))*2 #penalising the errors
+                self.consec_wins_bonus = -1
                 self.rewards[player_num] = -abs(predicted-actual)*2  # penalising the errors
+                self.scores[player_num] += self.rewards[player_num]  
+                print(f"Help what happened here: {self.scores[player_num]}")
+        print(f"State of the AI-player: {states} and {action}")
+        if  self.consec_wins_bonus > self.max_consec:
+            self.max_consec = self.consec_wins_bonus
+        
  
     #reset deck and trick for next round
     def reset_for_next_round(self):
@@ -187,7 +197,7 @@ class RikikiGame:
         #     player_1_bid, player_2_bid, player_3_bid
         # ], dtype=torch.float)   
         
-        #reduced version for learning 
+        #reduced version for learning quicker
         state_representation = torch.tensor([
             num_aces, num_atout_cards, current_deck_size
         ], dtype=torch.float)  #state is a 1x3 tensor

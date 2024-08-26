@@ -35,9 +35,45 @@ What I wanted to check now is if the average shifts with more conservative playe
 
 --> We can conclude that the model needs a bigger memory, such that it can understand these shifts faster and per round. 
 
--> Lets try to complexify the model
+-> Lets try to complexify the model: Does not change a lot!
 
 After that we will try to improve the Q-value update, need to read chapter 2 for that. 
+
+
+# After training, the optimal policy can be derived from the neural network
+def optimal_policy(state):
+    state = torch.FloatTensor(state).unsqueeze(0)
+    with torch.no_grad():
+        q_values = model(state)
+    return np.argmax(q_values.numpy())
+   
+   --> Stayed at page 31
+
+
+Come back onto comparing my model with the RL_snake model
+long memory
+short memory: only works for this scenario where consecutive good actions are taken
+
+If I want to apply that I should consider storing benefit actions in some rounds
+--------------------------------------------
+
+
+
+For the report:
+As can be seen in image: /home/tdebacker/rl_snake/rikiki_ws/image_outputs/plot_20240826_172118.png
+The average true bid is around 1 in a game going until 8 cards with 4 players. By bidding 1 the AI-agent learned over multiple gains that bidding close to this line is a good strategy. 
+What was also analysed is the playing behaviour of the other players and how this affect the playing strategy of the AI player. 
+
+
+
+/home/tdebacker/rl_snake/rikiki_ws/image_outputs/plot_20240826_185800.png --> result with liberal, cons, random bidder (average is higher)
+sensitivity using different gaming profiles
+
+/home/tdebacker/rl_snake/rikiki_ws/image_outputs/plot_20240826_190155.png --> giving higher rewards, the average action is higher
+
+
+
+
 
 
 

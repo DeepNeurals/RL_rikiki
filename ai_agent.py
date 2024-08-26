@@ -30,7 +30,7 @@ class CustomCard(pydealer.Card):
 
 
 class AIAgent:
-    def __init__(self, deck_size, state_size, total_rounds, epsilon=0.05, gamma=0.99, lr=0.5, memory_size=10000, batch_size=32):
+    def __init__(self, deck_size, state_size, total_rounds, epsilon=0.05, gamma=0.99, lr=0.1, memory_size=10000, batch_size=32):
         self.agent_state = None
         self.playing_state = None
         self.n_games = 0
@@ -184,35 +184,19 @@ class AIAgent:
     
     #UPDATE BID MODEL --> 
     def update_bid_model(self, state, action, reward, next_state, done):
-        """Update the Q-values based on experience replay"""
-        #print(f"Memory:{self.memory}")
-        if len(self.memory) < self.batch_size:
-            return
-        
-        batch = random.sample(self.memory, self.batch_size)
-        #print(f"Batch:{batch}")
-
-        for state, action, reward, next_state, done in batch:
-            state = torch.tensor(state, dtype=torch.float32)
-            next_state = torch.tensor(next_state, dtype=torch.float32)
-            action = torch.tensor(action, dtype=torch.long)
-            reward = torch.tensor(reward, dtype=torch.float32)
-
         # Compute the target
         with torch.no_grad():
-            target = reward  #Basically the target is the value of that state
+            target = reward  #Basically the target is the value of that state plus expected value in future state
             if not done:
-                #print(f"next state: {next_state}")  
                 next_q_values = self.bid_model(next_state) #forward pass on next state
-                #print(f"next q-values: {next_q_values}")
                 target += self.gamma * torch.max(next_q_values)  #discount factor x the max argument action
-                #print(f"target: {target}")
+                print(f"target: {target}")
         
         # Compute the current Q-value
         q_values = self.bid_model(state)  #forward pass returns a 1x3 tensor
         q_value = q_values[action] 
 
-        # Compute the loss
+        # Compute the loss-> the loss is used to 
         loss = self.criterion(q_value, torch.tensor([target], dtype=torch.float32))
         self.optimizer.zero_grad()
         loss.backward()

@@ -30,7 +30,7 @@ class CustomCard(pydealer.Card):
 
 
 class AIAgent:
-    def __init__(self, deck_size, state_size, total_rounds, epsilon=0.05, gamma=0.99, lr=0.001, memory_size=10000, batch_size=32):
+    def __init__(self, deck_size, state_size, total_rounds, bid_model_weights, card_model_weights, epsilon=0.05, gamma=0.99, lr=0.001, memory_size=10000, batch_size=32):
         self.agent_state = None
         self.playing_state = None
         self.n_games = 0
@@ -52,10 +52,18 @@ class AIAgent:
         self.card_model = CardSelectionNN(total_rounds)
         self.losses_card = []  # List to store loss values
 
+        if bid_model_weights:
+            self.load_weights(self.bid_model, bid_model_weights)
+        if card_model_weights:
+            self.load_weights(self.card_model, card_model_weights)
+
         #for checking condition bid
         self.sum_bids = 0
         self.position_bidders = 0
 
+    def load_weights(self, model, weight_path):
+        model.load_state_dict(torch.load(weight_path))
+        model.eval()  # Set the model to evaluation mode
 
     #called every time the AI needs to play a card
     def update_playing_state(self, playing_state):

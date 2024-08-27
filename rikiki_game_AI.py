@@ -54,7 +54,8 @@ class RikikiGame:
         self.atout = None
         self.trick = pydealer.Stack()
         self.scores = defaultdict(int)
-        self.pli_scores = defaultdict(int)
+        self.pli_scores = {0: 0, 1: 0, 2: 0, 3: 0}
+        
         self.rewards = defaultdict(int)
         self.game_rewards = defaultdict(int)
         self.starting_player = 0
@@ -118,7 +119,7 @@ class RikikiGame:
                 self.game_rewards[player_num] = -abs(predicted-actual)*2
                 self.scores[player_num] += self.game_rewards[player_num]  
                 #print(f"Help what happened here: {self.scores[player_num]}")
-        print(f"State of the AI-player: {states} and {action}")
+        #print(f"State of the AI-player: {states} and {action}")
         if  self.consec_wins_bonus > self.max_consec:
             self.max_consec = self.consec_wins_bonus
         
@@ -139,6 +140,18 @@ class RikikiGame:
             return "Alice random Player"
         else:
             return "Random Player"
+    
+    def get_player_index(self, role):
+        if role == "JOE Conservative Player":
+            return self.conservative_player_index
+        elif role == "AI Player":
+            return self.ai_player_index
+        elif role == "HUMAN Player":
+            return self.HUMAN_player_index
+        elif role == "Alice random Player":
+            return self.ALICE_player_index
+        else:
+            return "Role not recognised"
 
 
     #printing function

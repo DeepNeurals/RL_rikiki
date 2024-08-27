@@ -3,12 +3,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class CardSelectionNN(nn.Module):
-    def __init__(self):
+    def __init__(self, total_cards):
         super(CardSelectionNN, self).__init__()
         # Define the neural network layers
         self.fc1 = nn.Linear(19, 64)   # First layer takes in 19 features (cards + tricks info)
         self.fc2 = nn.Linear(64, 32)   # Second layer reduces dimensionality
-        self.fc3 = nn.Linear(32, 8)    # Output layer corresponds to 8 available card slots
+        self.fc3 = nn.Linear(32, total_cards)    # Output layer corresponds to 8 available card slots
 
     def forward(self, x):
         # Process input through dense layers
@@ -28,15 +28,18 @@ class CardSelectionNN(nn.Module):
 
     def masked_softmax(self, logits, mask):
         # Reshape the mask to match the shape of logits
+        #print(f"Mask size{mask.shape}")
+        #print(f"logits size{logits.shape}")
+        #print(f"Logits: {logits}")
         mask = mask.view_as(logits)   
-        print(f"view mask as logits: {mask}")
+        #print(f"view mask as logits: {mask}")
 
         #for robustness do not chnage the logits directly, but clone
         masked_logits = logits.clone()
 
         # Set logits to a large negative value where mask is 0
         masked_logits[mask == 0] = -1e9
-        print(f"masked logits with zero: {masked_logits}")
+        #print(f"masked logits with zero: {masked_logits}")
 
         # Apply softmax to get probabilities
         softmax_output = F.softmax(masked_logits, dim=1)  # Apply softmax across the row

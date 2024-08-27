@@ -40,7 +40,7 @@ custom_deck = create_custom_deck()
 
 
 class RikikiGame:
-    def __init__(self, num_players, ai_player_index, conservative_player_index, BOB_player_index, ALICE_player_index, starting_deck_size):
+    def __init__(self, num_players, ai_player_index, conservative_player_index, BOB_player_index, ALICE_player_index, starting_deck_size, total_rounds):
         self.num_players = num_players
         self.ai_player_index = ai_player_index
         self.conservative_player_index = conservative_player_index
@@ -56,9 +56,11 @@ class RikikiGame:
         self.scores = defaultdict(int)
         self.pli_scores = defaultdict(int)
         self.rewards = defaultdict(int)
+        self.game_rewards = defaultdict(int)
         self.starting_player = 0
-        self.consec_wins_bonus = -1 #initiliase at start -1
+        self.consec_wins_bonus = -1 #initialise at start -1
         self.max_consec = 0
+        self.total_rounds = total_rounds
          
     def deal_cards(self, round_number):
         self.deck.shuffle()
@@ -106,14 +108,16 @@ class RikikiGame:
             actual = self.pli_scores[player_num]
             if predicted == actual: #if correct you win 5 points per correct predicted pli
                 self.consec_wins_bonus += 1 
-                print(f'store the correct state-action pair in the memory of the model')
+                #print(f'store the correct state-action pair in the memory of the model')
                 self.rewards[player_num] = max(5, 5 + (3* predicted)) + self.consec_wins_bonus*40 #5 for correct pli, and +3 per correctb pli. 
-                self.scores[player_num] += self.rewards[player_num] 
+                self.game_rewards[player_num] = max(5, 5 + (3* predicted))
+                self.scores[player_num] += self.game_rewards[player_num] 
             else: #if not correct you loose -2 per  difference between true pli and predicted
                 self.consec_wins_bonus = -1
                 self.rewards[player_num] = -abs(predicted-actual)*2  # penalising the errors
-                self.scores[player_num] += self.rewards[player_num]  
-                print(f"Help what happened here: {self.scores[player_num]}")
+                self.game_rewards[player_num] = -abs(predicted-actual)*2
+                self.scores[player_num] += self.game_rewards[player_num]  
+                #print(f"Help what happened here: {self.scores[player_num]}")
         print(f"State of the AI-player: {states} and {action}")
         if  self.consec_wins_bonus > self.max_consec:
             self.max_consec = self.consec_wins_bonus
@@ -228,7 +232,7 @@ class RikikiGame:
         encoded_hand = []
         
         # Add played cards as null vectors if a card is played
-        for i in range(self.starting_deck_size):
+        for i in range(self.total_rounds):
             if i < len(cards):
                 encoded_hand.append(self.one_hot_encode_card(cards[i]))
             else:

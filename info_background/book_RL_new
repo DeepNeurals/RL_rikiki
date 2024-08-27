@@ -69,9 +69,12 @@ What was also analysed is the playing behaviour of the other players and how thi
 /home/tdebacker/rl_snake/rikiki_ws/image_outputs/plot_20240826_185800.png --> result with liberal, cons, random bidder (average is higher)
 sensitivity using different gaming profiles
 
-/home/tdebacker/rl_snake/rikiki_ws/image_outputs/plot_20240826_190155.png --> giving higher rewards, the average action is higher
+/home/tdebacker/rl_snake/rikiki_ws/image_outputs/plot_20240826_190155.png --> giving higher rewards (50 per pli), the average action is higher
 
+With Playing, only following the existing reward:
+/home/tdebacker/rl_snake/rikiki_ws/image_outputs/plot_20240827_081541.png --> 63% winning on 300 games, we want to increase that. 
 
+/home/tdebacker/rl_snake/rikiki_ws/image_outputs/plot_20240827_094930.png --> reducing learning rate to 0.001
 
 
 

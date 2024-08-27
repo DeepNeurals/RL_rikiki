@@ -75,6 +75,10 @@ With Playing, only following the existing reward:
 /home/tdebacker/rl_snake/rikiki_ws/image_outputs/plot_20240827_081541.png --> 63% winning on 300 games, we want to increase that. 
 
 /home/tdebacker/rl_snake/rikiki_ws/image_outputs/plot_20240827_094930.png --> reducing learning rate to 0.001
+Onlyproblem: winning is defined as soring more than zero. 
+
+Implementing this: /home/tdebacker/rl_snake/rikiki_ws/play_model_outputs/model20240827_111253_500.pth 
+
 
 
 

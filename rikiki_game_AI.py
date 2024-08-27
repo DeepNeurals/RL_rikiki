@@ -40,11 +40,11 @@ custom_deck = create_custom_deck()
 
 
 class RikikiGame:
-    def __init__(self, num_players, ai_player_index, conservative_player_index, BOB_player_index, ALICE_player_index, starting_deck_size, total_rounds):
+    def __init__(self, num_players, ai_player_index, conservative_player_index, HUMAN_player_index, ALICE_player_index, starting_deck_size, total_rounds):
         self.num_players = num_players
         self.ai_player_index = ai_player_index
         self.conservative_player_index = conservative_player_index
-        self.BOB_player_index = BOB_player_index
+        self.HUMAN_player_index = HUMAN_player_index
         self.ALICE_player_index = ALICE_player_index
         self.starting_deck_size = starting_deck_size
         self.current_deck_size = starting_deck_size
@@ -133,10 +133,10 @@ class RikikiGame:
             return "JOE Conservative Player"
         elif player_num == self.ai_player_index:
             return "AI Player"
-        elif player_num == self.BOB_player_index:
-            return "BOB liberal bidder"
+        elif player_num == self.HUMAN_player_index:
+            return "HUMAN Player"
         elif player_num == self.ALICE_player_index:
-            return "Alice random bidder"
+            return "Alice random Player"
         else:
             return "Random Player"
 
@@ -153,7 +153,7 @@ class RikikiGame:
                 f"{self.get_player_role(player_num)} (Player {player_num + 1})",
                 self.bids[player_num],
                 self.pli_scores[player_num],
-                self.rewards[player_num],
+                self.game_rewards[player_num],
                 self.scores[player_num]
             ]
             table_data.append(row)
@@ -240,7 +240,7 @@ class RikikiGame:
                 encoded_hand.append(torch.zeros(17))
 
         # Trick Cards mapping
-        player_indices = {'JOE Conservative Player': 0, 'BOB liberal bidder': 1, 'Alice random bidder': 2}
+        player_indices = {'JOE Conservative Player': 0, 'HUMAN bidder': 1, 'Alice random bidder': 2}
         
         # Initialize with None or zeros for all players
         trick_card_placeholders = [None, None, None]

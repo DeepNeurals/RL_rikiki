@@ -20,12 +20,13 @@ suit_to_idx = {
 }
 
 class Training:
-    def __init__(self, game, ai_agent, alice_ai_agent, ai_player_index, ALICE_player_index):
+    def __init__(self, game, ai_agent, alice_ai_agent, ai_player_index, ALICE_player_index, HUMAN_player_index):
         self.game = game
         self.ai_agent = ai_agent
         self.ai_player_index = ai_player_index
         self.alice_ai_agent = alice_ai_agent
         self.ALICE_player_index = ALICE_player_index
+        self.HUMAN_player_index = HUMAN_player_index
         self.states = None
 
         #for learning initialise these
@@ -48,6 +49,7 @@ class Training:
         # #for Card NN update
         self.counter_played = 0
         self.AI_play_reward = 0
+        self.old_input_tensor = torch.zeros(11,19)
 
     def bidding_phase(self):
         starting_player = (self.game.starting_player + 1) % self.game.num_players #wrap the 4 players from 0-3. 
@@ -67,7 +69,7 @@ class Training:
         num_players = self.game.num_players
 
         #everyone adopt 1 strategy:
-        if player_num == self.game.conservative_player_index or player_num == self.game.BOB_player_index or player_num == self.game.ALICE_player_index:
+        if player_num == self.game.conservative_player_index or player_num == self.game.ALICE_player_index:
             if self.counter_of_past_bidders != num_players:
                 bid = 1
                 #print('I bid whatever I want, I am not last!', self.counter_of_past_bidders)
@@ -93,14 +95,51 @@ class Training:
         #         else:
         #             bid = 0
         #             #print('Bidding zero works')
-        
-        # # Bob (Liberal Player)
+
+        # # Bob (Liberal Player) 
         # elif player_num == self.game.BOB_player_index:
-        #     if self.counter_of_past_bidders == num_players:
-        #         bid = self.game.current_deck_size - total_bid_sum
-        #         #print(f'Bob bids {bid} as the last player')
-        #     else:
-        #         bid = self.game.current_deck_size
+        #     print(f"Atout: {self.game.atout}")
+        #     print(f"Bids played by others: {self.game.bids}")
+        #     print(f"Hand of human player: {self.game.players[player_num]}")
+        #     # if self.counter_of_past_bidders == num_players:
+        #     #     bid = self.game.current_deck_size - total_bid_sum
+        #     #     #print(f'Bob bids {bid} as the last player')
+        #     # else:
+        #     #     bid = self.game.current_deck_size
+            
+        # HUMAN PLAYER
+        elif player_num == self.HUMAN_player_index:
+            print(f"Atout: {self.game.atout}")
+            print(f"Bids played by others: {self.game.bids}")
+            print(f"Hand of human player: {self.game.players[player_num]}")
+            # if self.counter_of_past_bidders == num_players:
+            #     bid = self.game.current_deck_size - total_bid_sum
+            #     #print(f'Bob bids {bid} as the last player')
+            # else:
+            #     bid = self.game.current_deck_size
+            
+             # Ask for the human player's input
+            if self.counter_of_past_bidders == num_players:
+                while True:
+                    try:
+                        bid = int(input("Please enter your bid: "))
+                        if 0 <= bid <= self.game.current_deck_size and total_bid_sum+bid != self.game.current_deck_size:
+                            break
+                        else:
+                            print(f"Invalid bid. Please enter a number between 0 and {self.game.current_deck_size}. And not equal to the sum of number of cards.")
+                    except ValueError:
+                        print("Invalid input. Please enter a valid number.")
+            else:
+                # Ask the human player for their bid
+                while True:
+                    try:
+                        bid = int(input("Please enter your bid: "))
+                        if 0 <= bid <= self.game.current_deck_size:
+                            break
+                        else:
+                            print(f"Invalid bid. Please enter a number between 0 and {self.game.current_deck_size}.")
+                    except ValueError:
+                        print("Invalid input. Please enter a valid number.")
                
         # # Alice (Random Bidder)
         # elif player_num == self.game.ALICE_player_index:
@@ -227,9 +266,9 @@ class Training:
             #print("PLAYER SELECTION")
             #print('Player_num:', player_num)
             current_player = (self.game.starting_player + player_num) % self.game.num_players
-            #print('Current_player:', current_player)
+            print('Current_player:', current_player)
             role = self.game.get_player_role(current_player)
-            #print('Role', role)
+            print('Role', role)
 
             # #Playing strategy for all the players INCLUDING the AI player
             # if leading_suit: 
@@ -247,8 +286,9 @@ class Training:
             #     card = max(self.game.players[current_player], key=lambda x: x.custom_value)
 
             ##Commented out until bidding is sorted out!!!
-            if current_player != self.ai_player_index:
-                #Playing strategy for all the players excluding the AI player
+            if current_player != self.ai_player_index and current_player != self.HUMAN_player_index:
+                print("you entered in this loop")
+                #Playing strategy for all the players excluding the AI player and human player
                 if leading_suit: 
                     leading_cards = [card for card in self.game.players[current_player] if card.suit == leading_suit]
                     if leading_cards: # Play the highest card of the leading suit that you have
@@ -263,6 +303,49 @@ class Training:
                 else: # No leading suit established, play the highest card available in your player' s deck
                     card = max(self.game.players[current_player], key=lambda x: x.custom_value)
 
+            elif current_player == self.HUMAN_player_index:
+                print("HUMAN player HAND:", self.game.players[current_player])
+                print(f"These are the trick_cards:{trick_cards}")
+                print(f"scores of the game: {self.game.pli_scores}")
+                tricks_won_human  = self.game.pli_scores[self.HUMAN_player_index]
+                tricks_predicted_human  = self.game.bids[self.HUMAN_player_index]
+                print(f"You predicted this: {tricks_predicted_human} and currently won this: {tricks_won_human} ")
+                ##the card logic
+                if leading_suit:
+                    leading_cards = [card for card in self.game.players[current_player] if card.suit == leading_suit]
+                    if leading_cards:
+                        print(f"These is the leading suit you need to respect:{leading_suit}")
+                        while True:
+                            try:
+                                idx_card = int(input("Please enter the index of the card you want to play: "))
+                                card = self.game.players[current_player][idx_card]  ##this function will provide the card to play
+                                print(card, card.suit, leading_suit)
+                                print('what is this equal to?', card.suit == leading_suit)
+                                if idx_card < len(self.game.players[current_player]) and (card.suit == leading_suit) == True:
+                                    break
+                            except:
+                                print(f'Index is not valid or you played an illegal card')
+
+                    else: #no condition to respect
+                        while True:
+                            try:
+                                idx_card = int(input("Please enter the index of the card you want to play: "))
+                                card = self.game.players[current_player][idx_card]
+                                if idx_card < len(self.game.players[current_player]):
+                                    break
+                            except:
+                                print(f'Index is not valid try again: {len(self.game.players[current_player])}')
+                else: #no condition to respect
+                    while True:
+                        try:
+                            idx_card = int(input("Please enter the index of the card you want to play: "))
+                            card = self.game.players[current_player][idx_card]
+                            if idx_card < len(self.game.players[current_player]):
+                                    break
+                        except:
+                                print(f'Index is not valid try again: {len(self.game.players[current_player])}')
+
+
             elif current_player == self.ai_player_index:
                 print("HAND:", self.game.players[current_player])
                 hand = self.game.players[current_player]
@@ -275,7 +358,7 @@ class Training:
                 #create the input tensor 
                 print(f"Handsize: {len(hand)}")
                 input_tensor = self.game.process_hand(hand, trick_cards, tricks_won, tricks_predicted)
-                print(f"\033[32minput_tensor is: {input_tensor}\033[0m")
+                #print(f"\033[32minput_tensor is: {input_tensor}\033[0m")
 
                 #before choosing a card we update the model
                 if self.counter_played > 0: #do not update the first time 
@@ -308,8 +391,8 @@ class Training:
             if not leading_suit:
                 leading_suit = card.suit
             #remove played card from player' s hand
-            print(f"Players hand {self.game.players[current_player]}")
-            print(f"Card player {role} wants to remove out of hand: {card}")
+            #print(f"Players hand {self.game.players[current_player]}")
+            #print(f"Card player {role} wants to remove out of hand: {card}")
             self.game.players[current_player].remove(card)
             #print what card was played by who
             #print(f"{role} (Player {current_player + 1}) plays: {card}") ##commented out for efficiency
@@ -319,10 +402,12 @@ class Training:
         #determine who won the plit in this trick (a trick being 1-play of card in a round)
         #print('trick cards:', trick_cards)
         winning_card, winning_player_role = self.win_card(trick_cards, leading_suit)
-        print('winning card is:', winning_card, 'atout:', self.game.atout, 'leading suit:', leading_suit)
+        #print('winning card is:', winning_card, 'atout:', self.game.atout, 'leading suit:', leading_suit)
         print(f"winning_player_role: {winning_player_role}")
+        
+        #after determining the trick winner assign the play reward
+        self.AI_play_reward = self.det_play_reward(winning_player_role, self.old_input_tensor)
 
-        self.AI_play_reward = self.det_play_reward(winning_player_role, input_tensor)
         winning_player_index = next(i for i, card_tuple in enumerate(trick_cards) if card_tuple == (winning_card, winning_player_role))
         #print(f" {winning_player_role}  wins the trick with {winning_card}")   #COMMENTED OUT FOR EFFICEINCY
 
@@ -330,6 +415,7 @@ class Training:
         self.game.starting_player = (self.game.starting_player + winning_player_index) % self.game.num_players
         #update the pli score of the winning player
         self.game.pli_scores[winning_player_index] += 1
+        print(f"At the end of the trick, this is the status: {self.game.pli_scores}")
 
     def play_round(self, round_number):
         self.game.current_deck_size = self.game.starting_deck_size + round_number ##added round number so from 0-8
@@ -341,7 +427,8 @@ class Training:
 
         #print the results
         #self.game.print_scores()
-        #self.game.print_overview_table() ## for efficiency commented this out
+        self.game.print_overview_table() ## for efficiency commented this out
+
 
         ###HERE WE STORE important variables for update after a full round 
         self.state_old = self.states
@@ -384,15 +471,6 @@ class Training:
             current_game_actions.clear()
             true_game_actions.clear()
             self.game.consec_wins_bonus = -1 
-
-            #You can win a big reward at the end of game 
-            # big_reward = self.assign_points(self.game.scores, 3)  ###removed BIG reward for analysis purposes
-            # big_rewards_list.append(big_reward)
-            # self.AI_reward += big_reward
-
-            #check if alice wins a big reward this game
-            # big_reward_alice = self.assign_points(self.game.scores, 2)
-            # self.ALICE_reward += big_reward_alice
             n_games_played += 1
 
         ##WHILE LOOP FINSIHED
@@ -407,7 +485,6 @@ class Training:
         # Separate predicted bids (columns 1 to 8) and true bids (columns 9 to 16)
         predicted_bids = scores_df.iloc[:, 1:9]
         true_bids = scores_df.iloc[:, 9:]
-
 
        #SAVE THE MODEL
         #self.ai_agent.save_model(self.ai_agent.bid_model, model_filename)
@@ -427,7 +504,7 @@ class Training:
 
         #Game won vs game lost:
         won = sum(1 for x in scores_after_each_game if x > 0)
-        lost = sum(1 for x in scores_after_each_game if x < 0)
+        lost = sum(1 for x in scores_after_each_game if x <= 0)
         labels = ['Won', 'Lost']
         sizes = [won, lost]
         axs[1].pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90, colors=['#4CAF50', '#FF5252'])
@@ -483,7 +560,7 @@ class Training:
 
 if __name__ == "__main__":
     #global parameters
-    NUMBER_GAMES = 500; TOTAL_ROUNDS=8 
+    NUMBER_GAMES = 2; TOTAL_ROUNDS=8 
     # Create the 'outputs' folders
     image_output_dir = 'image_outputs'
     os.makedirs(image_output_dir, exist_ok=True)
@@ -503,7 +580,7 @@ if __name__ == "__main__":
     num_players = 4  # Adjust as needed
     #Starting Player's order
     conservative_player_index = 0  # The JOE first player is the conservative player
-    BOB_player_index = 1 #Bob is second to play
+    HUMAN_player_index = 1 #Bob/HUMAN player is second to play
     ALICE_player_index = 2 # ALice is third to play
     ai_player_index = 3  # The last player is the AI agent
 
@@ -512,7 +589,7 @@ if __name__ == "__main__":
     state_size = 3
 
     # Create game instance: initialises all attributes
-    game = RikikiGame(num_players, ai_player_index, conservative_player_index, BOB_player_index, ALICE_player_index, starting_deck_size, TOTAL_ROUNDS) #only play rounds of 3 cards
+    game = RikikiGame(num_players, ai_player_index, conservative_player_index, HUMAN_player_index, ALICE_player_index, starting_deck_size, TOTAL_ROUNDS) #only play rounds of 3 cards
     # #create an ai_agent instance of class AIAgent
     ai_agent = AIAgent(starting_deck_size, state_size, TOTAL_ROUNDS)
 
@@ -520,7 +597,7 @@ if __name__ == "__main__":
     alice_ai_agent = AIAgent(starting_deck_size, state_size, TOTAL_ROUNDS)
 
     #start one game
-    trainer = Training(game, ai_agent, alice_ai_agent, ai_player_index, ALICE_player_index)
+    trainer = Training(game, ai_agent, alice_ai_agent, ai_player_index, ALICE_player_index, HUMAN_player_index)
     trainer.trainer()
 
 

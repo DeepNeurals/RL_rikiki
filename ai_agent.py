@@ -112,7 +112,7 @@ class AIAgent:
         selected_row = input_tensor[max_value_index]
         
         # For demonstration purposes, assuming the row is a card
-        print(f"For testing this is the selected row index: {max_value_index}")
+        #print(f"For testing this is the selected row index: {max_value_index}")
         return selected_row, max_value_index
 
     def tensor_to_card(self, tensor_row):

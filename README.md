@@ -53,8 +53,4 @@ To let the AI play automatically without manual input, ensure the `manual_input`
 ```python
 manual_input = False
 
-### Explanation:
-- **Image Path**: `images/rikiki_game.png` is the assumed path where the image is stored within your repository. Make sure that this path is correct relative to the location of your `README.md`.
-- **Markdown Syntax**: The image is displayed using the `![alt text](image path)` syntax at the bottom of the file.
-
-After adding the image to your repository, the `README.md` will display the image at the bottom when viewed on GitHub.
+![alt text](images/rikiki_game.png)

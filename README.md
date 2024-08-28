@@ -8,7 +8,6 @@ This repository contains the implementation of an AI agent that plays Rikiki, a 
 - [Usage](#usage)
 - [Manual Play](#manual-play)
 - [Automatic Play](#automatic-play)
-- [License](#license)
 
 ## Installation
 

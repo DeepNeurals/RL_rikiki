@@ -265,11 +265,12 @@ class Training:
         atout_in_hand = [card for card in hand if card.suit == self.game.atout.suit]
         if len(atout_in_hand) > 0:
             print(f'atout_in_hand {atout_in_hand}')
-            if atout_in_hand:
-                low_atout = True ####needs to be adapted to be lower than 9 
-            else:
-                low_atout = False
-        else:
+            for card in atout_in_hand:
+                if card.custom_value < 9:
+                    low_atout = True
+                else:
+                    low_atout = False
+        else:#no atout cards
             low_atout = False
 
         return low_atout
@@ -533,16 +534,30 @@ class Training:
 
                             if tricks_won_human<tricks_predicted_human and posses_low_atout is True:
                                 #print(f'play low atout to force other players to spend their atouts')
-                                card = lowest_atout_card
+                                if lowest_atout_card is not None:
+                                    card = lowest_atout_card
+                                else:
+                                    card = min(self.game.players[current_player], key=lambda x: x.custom_value)
+
                             elif tricks_won_human<tricks_predicted_human and posses_low_atout is False:
                                 #print(f'Play highest card you have that is not atout to make it a leading suit')
-                                card = lowest_non_atout_card
+                                if lowest_non_atout_card is not None:
+                                    card = lowest_non_atout_card
+                                else:
+                                    card = min(self.game.players[current_player], key=lambda x: x.custom_value)
+
                             elif tricks_won_human>=tricks_predicted_human:
                                 #print('Play lowest atout or non atout card that you have!')
                                 if posses_low_atout is True:
-                                    card = lowest_atout_card
+                                    if lowest_non_atout_card is not None:
+                                        card = lowest_atout_card
+                                    else:
+                                        card = min(self.game.players[current_player], key=lambda x: x.custom_value)
                                 else: 
-                                    card = lowest_non_atout_card
+                                    if lowest_non_atout_card is not None:
+                                        card = lowest_non_atout_card
+                                    else:
+                                        card = min(self.game.players[current_player], key=lambda x: x.custom_value)
                             else:
                                 #print('Play any card you have')
                                 card = max(self.game.players[current_player], key=lambda x: x.custom_value)

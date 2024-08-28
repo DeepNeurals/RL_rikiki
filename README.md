@@ -52,5 +52,6 @@ To let the AI play automatically without manual input, ensure the `manual_input`
 
 ```python
 manual_input = False
+```
 
 ![alt text](images/rikiki_game.png)

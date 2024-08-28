@@ -1,4 +1,4 @@
-# RL Rikiki
+# ![alt text](https://github.com/DeepNeurals/RL_rikiki/blob/main/images/rikiki.png)
 
 This repository contains the implementation of an AI agent that plays Rikiki, a card game, using Reinforcement Learning techniques. You can play against the AI agent manually or let the AI play automatically.
 
@@ -54,4 +54,4 @@ To let the AI play automatically without manual input, ensure the `manual_input`
 manual_input = False
 ```
 
-![alt text](https://github.com/DeepNeurals/RL_rikiki/blob/main/images/rikiki.png)
+

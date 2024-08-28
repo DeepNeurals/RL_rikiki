@@ -1,8 +1,8 @@
 import pydealer
 from collections import defaultdict
 from tabulate import tabulate
-import random
-from ai_agent import AIAgent
+# import random
+# from ai_agent import AIAgent
 import torch
 
 value_to_idx = {
@@ -159,6 +159,7 @@ class RikikiGame:
         for player_num in range(self.num_players):
             role = self.get_player_role(player_num)
             print(f"{role} (Player {player_num + 1}) score: {self.scores[player_num]}")
+            
     def print_overview_table(self):
         table_data = []
         for player_num in range(self.num_players):

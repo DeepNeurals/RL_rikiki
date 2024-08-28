@@ -1,11 +1,15 @@
 #This is a minimum version 
 
+from ascii_art_utils import create_ascii_art, colorize_text
+from helper import store_score, display_game_info, display_game_status, print_table
 from rikiki_game_AI import RikikiGame
 from ai_agent import AIAgent
 import torch
 import random
 import matplotlib.pyplot as plt
 from collections import defaultdict
+from tabulate import tabulate
+from colorama import Fore, Style, init
 # import numpy as np
 import csv
 import pandas as pd
@@ -20,13 +24,14 @@ suit_to_idx = {
 }
 
 class Training:
-    def __init__(self, game, ai_agent, ai_player_index, ALICE_player_index, HUMAN_player_index):
+    def __init__(self, game, ai_agent, ai_player_index, ALICE_player_index, HUMAN_player_index, manual_input):
         self.game = game
         self.ai_agent = ai_agent
         self.ai_player_index = ai_player_index
         self.ALICE_player_index = ALICE_player_index
         self.HUMAN_player_index = HUMAN_player_index
         self.states = None
+        self.manual_input = manual_input
 
         #for learning initialise these
         self.state_old = torch.zeros(1,3)
@@ -43,6 +48,8 @@ class Training:
         self.counter_played = 0
         self.AI_play_reward = 0
         self.old_input_tensor = torch.zeros(11,19)
+    
+    
 
     def bidding_phase(self):
         starting_player = (self.game.starting_player + 1) % self.game.num_players #wrap the 4 players from 0-3. 
@@ -61,7 +68,7 @@ class Training:
             #print(card)
         num_players = self.game.num_players
 
-        #everyone adopt 1 strategy:
+        #Joe and Alice play 1 when possible:
         if player_num == self.game.conservative_player_index or player_num == self.game.ALICE_player_index:
             if self.counter_of_past_bidders != num_players:
                 bid = 1
@@ -102,37 +109,42 @@ class Training:
             
         # HUMAN PLAYER
         elif player_num == self.HUMAN_player_index:
-            print(f"Atout: {self.game.atout}")
-            print(f"Bids played by others: {self.game.bids}")
-            print(f"Hand of human player: {self.game.players[player_num]}")
-            # if self.counter_of_past_bidders == num_players:
-            #     bid = self.game.current_deck_size - total_bid_sum
-            #     #print(f'Bob bids {bid} as the last player')
-            # else:
-            #     bid = self.game.current_deck_size
-            
+            display_game_info(self.game.atout, self.game.bids, self.game.players[player_num])
              # Ask for the human player's input
-            if self.counter_of_past_bidders == num_players:
-                while True:
-                    try:
-                        bid = int(input("Please enter your bid: "))
-                        if 0 <= bid <= self.game.current_deck_size and total_bid_sum+bid != self.game.current_deck_size:
-                            break
-                        else:
-                            print(f"Invalid bid. Please enter a number between 0 and {self.game.current_deck_size}. And not equal to the sum of number of cards.")
-                    except ValueError:
-                        print("Invalid input. Please enter a valid number.")
+            if self.manual_input == True:
+                if self.counter_of_past_bidders == num_players:
+                    while True:
+                        try:
+                            bid = int(input("Please enter your bid: "))
+                            if 0 <= bid <= self.game.current_deck_size and total_bid_sum+bid != self.game.current_deck_size:
+                                break
+                            else:
+                                print(f"Invalid bid. Please enter a number between 0 and {self.game.current_deck_size}. And not equal to the sum of number of cards.")
+                        except ValueError:
+                            print("Invalid input. Please enter a valid number.")
+                else:
+                    # Ask the human player for their bid
+                    while True:
+                        try:
+                            bid = int(input("Please enter your bid: "))
+                            if 0 <= bid <= self.game.current_deck_size:
+                                break
+                            else:
+                                print(f"Invalid bid. Please enter a number between 0 and {self.game.current_deck_size}.")
+                        except ValueError:
+                            print("Invalid input. Please enter a valid number.")
             else:
-                # Ask the human player for their bid
-                while True:
-                    try:
-                        bid = int(input("Please enter your bid: "))
-                        if 0 <= bid <= self.game.current_deck_size:
-                            break
-                        else:
-                            print(f"Invalid bid. Please enter a number between 0 and {self.game.current_deck_size}.")
-                    except ValueError:
-                        print("Invalid input. Please enter a valid number.")
+                state_human = self.game.update_game_state(self.HUMAN_player_index)
+                print(f'State of human player: {state_human}')
+                n_atout_human = state_human[1]
+                if self.counter_of_past_bidders == num_players:
+                    if n_atout_human + total_bid_sum != self.game.current_deck_size:
+                        bid = n_atout_human
+                    else:
+                        bid = n_atout_human + 1
+                #print(f'Bob bids {bid} as the last player')
+                else:
+                    bid = n_atout_human
                
         # # Alice (Random Bidder)
         # elif player_num == self.game.ALICE_player_index:
@@ -207,6 +219,60 @@ class Training:
                 reward = 10
         return reward
 
+    def det_leading_suit_cards(self, leading_cards):
+        print(f'Leading card in hand player: { leading_cards }')
+        lowest_leading_suit_card = min(leading_cards, key=lambda x: x.custom_value)
+        highest_leading_suit_card = max(leading_cards, key=lambda x: x.custom_value)
+        return lowest_leading_suit_card, highest_leading_suit_card
+    
+    def det_posses_low_atout(self, hand):
+        #atout_in_hand = [at[0] for at in hand if at[0].suit == self.game.atout.suit]
+        atout_in_hand = [card for card in hand if card.suit == self.game.atout.suit]
+        if len(atout_in_hand) > 0:
+            #check if you have any atout lower than 9 
+            print(f'atout_in_hand {atout_in_hand}')
+            if atout_in_hand:
+                low_atout = True
+            else:
+                low_atout = False
+        else:
+            low_atout = False
+        return low_atout
+    
+    def det_atout_cards(self, atout_cards, highest_atout_trick):
+        print("tetstt")
+        lowest_atout_card = min(atout_cards, key=lambda x: x.custom_value)
+        highest_atout_card = max(atout_cards, key=lambda x: x.custom_value)
+        print(f'Hand {atout_cards}, highest_atout_trick: {highest_atout_trick}')
+
+        # Filter the atout cards to find potential medium atout cards
+        print(f'Card in atout: {atout_cards}')
+        potential_medium_atouts = [
+            card for card in atout_cards 
+            if card.custom_value != lowest_atout_card.custom_value and
+            card.custom_value != highest_atout_card.custom_value and
+            card.custom_value < highest_atout_trick
+        ]
+
+        # If there are any valid medium atout cards, choose the highest among them
+        if potential_medium_atouts:
+            medium_atout_card = max(potential_medium_atouts, key=lambda x: x.custom_value)
+        else:
+            medium_atout_card = None  # No medium atout card that meets the criteria
+
+        return lowest_atout_card, medium_atout_card, highest_atout_card, 
+    
+    def det_non_atout_cards(self, hand):
+        non_atout_cards = [card for card in hand if card.suit != self.game.atout.suit]
+        if len(non_atout_cards)>0:
+            lowest_non_atout_card = min(non_atout_cards, key=lambda x: x.custom_value)
+            highest_non_atout_card = max(non_atout_cards, key=lambda x: x.custom_value)
+        else:
+            print(f'Only atout cards in hand!!!')
+            lowest_non_atout_card = None
+            highest_non_atout_card = None
+
+        return lowest_non_atout_card, highest_non_atout_card
 
 
     def play_all_tricks(self): #play all tricks in the current round
@@ -219,17 +285,17 @@ class Training:
         leading_suit = None
 
         #for player in 4 players
-        print("START TRICK")
-        print(f"Atout: {self.game.atout}")
+        #print("START TRICK")
+        #print(f"Atout: {self.game.atout}")
         for player_num in range(self.game.num_players):
 
             #PlAYER SELLECTION
-            print("PLAYER SELECTION")
-            print('Player_num:', player_num)
+            #print("PLAYER SELECTION")
+            #print('Player_num:', player_num)
             current_player = (self.game.starting_player + player_num) % self.game.num_players
-            print('Current_player:', current_player)
+            #print('Current_player:', current_player)
             role = self.game.get_player_role(current_player)
-            print('Role', role)
+            #print('Role', role)
 
             # #Playing strategy for all the players INCLUDING the AI player
             # if leading_suit: 
@@ -248,7 +314,6 @@ class Training:
 
             #For JOE and Alice bid automatically
             if current_player != self.ai_player_index and current_player != self.HUMAN_player_index:
-                print("you entered in this loop")
                 #Playing strategy for all the players excluding the AI player and human player
                 if leading_suit: 
                     leading_cards = [card for card in self.game.players[current_player] if card.suit == leading_suit]
@@ -264,48 +329,192 @@ class Training:
                 else: # No leading suit established, play the highest card available in your player' s deck
                     card = max(self.game.players[current_player], key=lambda x: x.custom_value)
             
-            #for human player bid manually
+            
+            # For human player bid manually
             elif current_player == self.HUMAN_player_index:
-                print("HUMAN player HAND:", self.game.players[current_player])
-                print(f"trick_cards so far played: {trick_cards}")
-                #print(f"scores of the game: {self.game.pli_scores}")
-                tricks_won_human  = self.game.pli_scores[self.HUMAN_player_index]
-                tricks_predicted_human  = self.game.bids[self.HUMAN_player_index]
-                print(f"You predicted this: {tricks_predicted_human} and currently won this: {tricks_won_human} ")
-                ##the card logic
-                if leading_suit:
-                    leading_cards = [card for card in self.game.players[current_player] if card.suit == leading_suit]
-                    if leading_cards:
-                        print(f"These is the leading suit you need to respect:{leading_suit}")
-                        while True:
-                            try:
-                                idx_card = int(input("Please enter the index of the card you want to play: "))
-                                card = self.game.players[current_player][idx_card]  ##this function will provide the card to play
-                                print(card, card.suit, leading_suit)
-                                print('what is this equal to?', card.suit == leading_suit)
-                                if idx_card < len(self.game.players[current_player]) and (card.suit == leading_suit) == True:
-                                    break
-                            except:
-                                print(f'Index is not valid or you played an illegal card')
+                if len(self.game.players[current_player]) == 1:
+                    idx_card = 0
+                    card = self.game.players[current_player][idx_card]
+                else:
+                    tricks_won_human = self.game.pli_scores[self.HUMAN_player_index]
+                    tricks_predicted_human = self.game.bids[self.HUMAN_player_index]
+                    if self.manual_input == True:
+                        display_game_status(self.game.atout, trick_cards, self.game.players[current_player], tricks_predicted_human, tricks_won_human)
+                        if leading_suit:
+                            #print(f"You entered leading suit")
+                            leading_cards = [card for card in self.game.players[current_player] if card.suit == leading_suit]
+                            if leading_cards:
+                                print(f"You have to play a card of this leading suit: {leading_suit}")
+                                while True:
+                                    try:
+                                        idx_card = int(input("\033[1mPlease enter the index of the card you want to play:\033[0m "))
+                                        if idx_card < len(self.game.players[current_player]):
+                                            card = self.game.players[current_player][idx_card]
+                                            if card.suit == leading_suit:
+                                                confirm = input(f"You selected: {card}. Do you want to play this card? (Y/N): ").strip().upper()
+                                                if confirm == 'Y':
+                                                    break
+                                                else:
+                                                    print(f'\033[ You can play a different card\033[0m')
+                                            else:
+                                                print(f'\033[ Card does not match the leading suit\033[0m')
+                                        else:
+                                            print(f'\033[Invalid index, try again\033[0m')
+                                    except ValueError:
+                                        print(f'\033[91mInvalid input. Please enter a valid number.\033[0m')
+                            else:
+                                print(f"You have no leading suit, you can play whatever you want!")
+                                # No leading suit to respect
+                                while True:
+                                    try:
+                                        idx_card = int(input("\033[1mPlease enter the index of the card you want to play:\033[0m "))
+                                        if idx_card < len(self.game.players[current_player]):
+                                            card = self.game.players[current_player][idx_card]
+                                            confirm = input(f"You selected: {card}. Do you want to play this card? (Y/N): ").strip().upper()
+                                            if confirm == 'Y':
+                                                break
+                                            else:
+                                                print(f'\033[You need to play a different card\033[0m')
+                                        else:
+                                            print(f'\033[Invalid index, try again\033[0m')
+                                    except ValueError:
+                                        print(f'\033[91mInvalid input. Please enter a valid number.\033[0m')
+                        else:
+                            print(f"You are the first to play, play whatever you want!")
+                            # No leading suit to respect
+                            while True:
+                                try:
+                                    idx_card = int(input("\033[1mPlease enter the index of the card you want to play:\033[0m "))
+                                    if idx_card < len(self.game.players[current_player]):
+                                        card = self.game.players[current_player][idx_card]
+                                        confirm = input(f"You selected: {card}. Do you want to play this card? (Y/N): ").strip().upper()
+                                        if confirm == 'Y':
+                                            break
+                                        else:
+                                            print(f'\033[You need to play a different card\033[0m')
+                                    else:
+                                        print(f'\033[Invalid index, try again\033[0m')
+                                except ValueError:
+                                    print(f'\033[91mInvalid input. Please enter a valid number.\033[0m')
 
-                    else: #no condition to respect
-                        while True:
-                            try:
-                                idx_card = int(input("Please enter the index of the card you want to play: "))
-                                card = self.game.players[current_player][idx_card]
-                                if idx_card < len(self.game.players[current_player]):
-                                    break
-                            except:
-                                print(f'Index is not valid try again: {len(self.game.players[current_player])}')
-                else: #no condition to respect
-                    while True:
-                        try:
-                            idx_card = int(input("Please enter the index of the card you want to play: "))
-                            card = self.game.players[current_player][idx_card]
-                            if idx_card < len(self.game.players[current_player]):
-                                    break
-                        except:
-                                print(f'Index is not valid try again: {len(self.game.players[current_player])}')
+                    else: #play according to my optimal strategy
+                        tricks_predicted_human = self.game.bids[self.HUMAN_player_index]
+                        if leading_suit: #there is a leading suit 
+                            leading_cards = [card for card in self.game.players[current_player] if card.suit == leading_suit]
+                            if leading_cards: #you have leading cards
+                                if len(leading_cards) >= 2: #you have multiple leading cards
+                                    print(f'cards in trick_cards: {trick_cards}')
+                                    highest_leading_card_value = max(tc[0].value for tc in trick_cards if tc[0].suit == leading_suit)
+                                    print(f'highest_leading_card_value: {highest_leading_card_value}')
+
+                                    # Check if the player has a card of the leading suit that is higher than the highest leading suit card in trick_cards
+                                    higher_card_exists = any(card.suit == leading_suit and card.value > highest_leading_card_value 
+                                                            for card in self.game.players[current_player])
+                                    
+                                    low_leading_suit_card, high_leading_suit_card = self.det_leading_suit_cards(leading_cards)
+
+                                    #adapt playing strategy
+                                    if higher_card_exists is True and tricks_won_human<tricks_predicted_human:
+                                        print('Play the higher leading suit card that you have')
+                                        card = high_leading_suit_card
+                                    elif higher_card_exists is True and tricks_won_human>=tricks_predicted_human:
+                                        print('Play the lower leading suit card to be sure not to win')
+                                        card = low_leading_suit_card
+                                    elif higher_card_exists is False and tricks_won_human>=tricks_predicted_human:
+                                        print('consume the highest leading suit card for safety')
+                                        card = high_leading_suit_card
+                                    elif higher_card_exists is False and tricks_won_human<tricks_predicted_human:
+                                        print('play lowest leading suit card in order to conserve the highest for next tricks')
+                                        card = low_leading_suit_card
+                                    else:
+                                        print('Play any leading card')
+                                        card = high_leading_suit_card
+
+                                else: #play the only leading card you have
+                                    print("I played an exceptional card!!!")
+                                    card = max(leading_cards, key=lambda x: x.custom_value)
+                            
+                            else: #You have no leading card, play smart
+                                print(f'cards in trick_cards: {trick_cards}')
+                                atout_cards_trick = [tc[0] for tc in trick_cards if tc[0].suit == self.game.atout.suit]
+                                print(f'atout_cards_trick: {atout_cards_trick}')
+                                if len(atout_cards_trick) == 0:
+                                    highest_trick_atout_card = 0
+                                else: 
+                                    highest_trick_atout_card = max(tc.custom_value for tc in atout_cards_trick if tc.suit == self.game.atout.suit)
+
+                                print(f'Highest trick atout card: {highest_trick_atout_card}')
+
+                                print(f'Hand of human player: {self.game.players[current_player]}')
+                                higher_atout_card_exists = any(card.suit == self.game.atout.suit and card.custom_value > highest_trick_atout_card 
+                                                            for card in self.game.players[current_player])
+                                print(f'Value of highest atout card exists: {higher_atout_card_exists}')
+
+                                atout_cards = [card for card in self.game.players[current_player] if card.suit == self.game.atout.suit]
+                                print(f'Atout cards before passing: {atout_cards}')
+
+                                if len(atout_cards) > 0: #more than one atout card
+                                    lowest_atout_card, medium_atout_card, highest_atout_card = self.det_atout_cards(atout_cards, highest_trick_atout_card)
+                                else:
+                                    lowest_atout_card, medium_atout_card, highest_atout_card = None, None, None
+                                
+                                lowest_non_atout_card, highest_non_atout_card = self.det_non_atout_cards(self.game.players[current_player])
+
+                                if higher_atout_card_exists is True and tricks_won_human<tricks_predicted_human:
+                                    print(f'play higher atout_card (the highest you have)')
+                                    card = highest_atout_card
+                                elif higher_atout_card_exists is True and tricks_won_human>=tricks_predicted_human:
+                                    print(f'play an atout_card that is lower than the one played or a very high non-atout card')
+                                    if medium_atout_card is not None:
+                                        card = medium_atout_card
+                                    else:
+                                        if highest_non_atout_card is not None:
+                                            card = highest_non_atout_card
+                                        else:
+                                            print('Very unlikerly scenario, play lowest card in hand')
+                                            card = min(self.game.players[current_player], key=lambda x: x.custom_value)
+
+                                elif higher_atout_card_exists is False and tricks_won_human>=tricks_predicted_human and highest_atout_card is not None:
+                                    print(f'play your highest atout card')
+                                    card = highest_atout_card
+                                elif higher_atout_card_exists is False and tricks_won_human<tricks_predicted_human:
+                                    print('play lowest card that is not an atout card') 
+                                    if lowest_non_atout_card is not None:
+                                        card = lowest_non_atout_card
+                                    else:
+                                        print('Play lowest atout card to preserve the others')
+                                        card = min(self.game.players[current_player], key=lambda x: x.custom_value)
+                                else:
+                                    print("CANNOT IMAGINE THE SCENARIO")
+                                    card = min(self.game.players[current_player], key=lambda x: x.custom_value)
+
+                        else: #You are first to play smart!
+                            posses_low_atout = self.det_posses_low_atout(self.game.players[current_player])
+                            highest_trick_atout_card = 0
+                            atout_cards = [card for card in self.game.players[current_player] if card.suit == self.game.atout.suit]
+                            if len(atout_cards)>0:
+                                lowest_atout_card, medium_atout_card, highest_atout_card = self.det_atout_cards(atout_cards, highest_trick_atout_card)
+                            else:
+                                lowest_atout_card, medium_atout_card, highest_atout_card = None, None, None
+
+                            lowest_non_atout_card, highest_non_atout_card = self.det_non_atout_cards(self.game.players[current_player])
+
+                            if tricks_won_human<tricks_predicted_human and posses_low_atout is True:
+                                print(f'play low atout to force other players to spend their atouts')
+                                card = lowest_atout_card
+                            elif tricks_won_human<tricks_predicted_human and posses_low_atout is False:
+                                print(f'Play highest card you have that is not atout to make it a leading suit')
+                                card = lowest_non_atout_card
+                            elif tricks_won_human>=tricks_predicted_human:
+                                print('Play lowest atout or non atout card that you have!')
+                                if posses_low_atout is True:
+                                    card = lowest_atout_card
+                                else: 
+                                    card = lowest_non_atout_card
+                            else:
+                                print('Play any card you have')
+                                card = max(self.game.players[current_player], key=lambda x: x.custom_value)
+                            
 
             #bid using inference for AI
             elif current_player == self.ai_player_index:
@@ -354,16 +563,13 @@ class Training:
                 leading_suit = card.suit
             #remove played card from player' s hand
             #print(f"Players hand {self.game.players[current_player]}")
-            #print(f"Card player {role} wants to remove out of hand: {card}")
+            print(f"Card player {role} wants to remove out of hand: {card}")
             self.game.players[current_player].remove(card)
             #print what card was played by who
             #print(f"{role} (Player {current_player + 1}) plays: {card}") ##commented out for efficiency
         
         #DETERMINING a Trick winner
-        print(f"These are the trick_cards:{trick_cards}")
         winning_card, winning_player_role = self.win_card(trick_cards, leading_suit)
-        #print('winning card is:', winning_card, 'atout:', self.game.atout, 'leading suit:', leading_suit)
-        #after determining the trick winner assign the play reward
         self.AI_play_reward = self.det_play_reward(winning_player_role, self.old_input_tensor)
 
         #winning_player_index = next(i for i, card_tuple in enumerate(trick_cards) if card_tuple == (winning_card, winning_player_role))
@@ -373,13 +579,9 @@ class Training:
 
         #HERE we need to transform role->index 
         winning_player_index = self.game.get_player_index(winning_player_role)
+        print_table(self.game.atout, leading_suit, trick_cards, winning_player_role)
         self.game.starting_player = (self.game.starting_player + winning_player_index) % self.game.num_players
-        #update the pli score of the winning player
-        print(f'wimning player index: {winning_player_index}')
-        print(f"pliscores: {self.game.pli_scores}")
         self.game.pli_scores[winning_player_index] += 1
-        print(f"pliscores after: {self.game.pli_scores}")
-        print(f'pliscore 2: {self.game.pli_scores[2]}')
 
         
 
@@ -407,13 +609,8 @@ class Training:
         self.game.reset_for_next_round() #--> end of round 
         self.game.pli_scores = defaultdict(int) #for next round
 
-    ##Helper function 
-    def store_score(self, score, actions, true_actions):
-        # Open the CSV file in append mode
-        with open(CSV_FILE_PATH, mode='a', newline='') as file:
-            writer = csv.writer(file)
-            # Write the score to the CSV file
-            writer.writerow([score]+actions+ true_actions)
+
+
 
     # Train the model 
     def trainer(self):
@@ -433,7 +630,7 @@ class Training:
                 #reward_after_each_round.append(self.AI_reward) #this creates a list of all rewards won during the round 
             
             #at the end of every game: --> store into csv file for efficiency
-            self.store_score(self.game.scores[ai_player_index], current_game_actions, true_game_actions)
+            store_score(self.game.scores[ai_player_index], current_game_actions, true_game_actions, CSV_FILE_PATH)
             current_game_actions.clear()
             true_game_actions.clear()
             self.game.consec_wins_bonus = -1 
@@ -447,35 +644,20 @@ class Training:
         scores_df = pd.read_csv(CSV_FILE_PATH, header=None)
         scores_after_each_game = scores_df[0].tolist()
 
-
         # Separate predicted bids (columns 1 to 8) and true bids (columns 9 to 16)
         predicted_bids = scores_df.iloc[:, 1:9]
         true_bids = scores_df.iloc[:, 9:]
 
-       #SAVE THE MODEL
+        #SAVE THE MODEL
         #self.ai_agent.save_model(self.ai_agent.bid_model, model_filename)
         self.ai_agent.save_model(self.ai_agent.card_model, play_model_filename)
-
-        # Creating a single figure with three subplots
-        fig, axs = plt.subplots(3, 1, figsize=(12, 18))
-
-        # First subplot: Rewards over Time
-        axs[0].plot(scores_after_each_game,color='green', label='AI Game Reward')
-        # axs[0].plot(alice_acc_rewards, color='pink', label='ALICE Game Reward')
-        axs[0].set_xlabel('Game')
-        axs[0].set_ylabel('Total Reward')
-        axs[0].set_title('Rewards over Time')
-        axs[0].legend()
-        axs[0].grid(True)
 
         #Game won vs game lost:
         won = sum(1 for x in scores_after_each_game if x > 0)
         lost = sum(1 for x in scores_after_each_game if x <= 0)
         labels = ['Won', 'Lost']
         sizes = [won, lost]
-        axs[1].pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90, colors=['#4CAF50', '#FF5252'])
-        axs[1].set_title('Games Won vs. Lost')
-
+        
         # Calculate the average predicted bids per round
         average_predicted_bids = predicted_bids.mean(axis=0)
         # Calculate the average true bids per round
@@ -485,6 +667,18 @@ class Training:
         # Calculate the overall average of true bids
         overall_average_true = true_bids.values.mean()
 
+        #CREATE FUGURE single figure with three subplots
+        fig, axs = plt.subplots(3, 1, figsize=(12, 18))
+
+        # First subplot: Rewards over Time
+        axs[0].plot(scores_after_each_game,color='green', label='AI Game Reward')
+        axs[0].set_xlabel('Game')
+        axs[0].set_ylabel('Total Reward')
+        axs[0].set_title('Rewards over Time')
+        axs[0].legend()
+        axs[0].grid(True)
+        axs[1].pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90, colors=['#4CAF50', '#FF5252'])
+        axs[1].set_title('Games Won vs. Lost')
         axs[2].plot(range(2, 10), average_predicted_bids, marker='o', label='Average Predicted Bids')
         axs[2].plot(range(2, 10), average_true_bids, marker='x', label='Average True Bids')
         axs[2].axhline(y=overall_average_predicted, color='darkblue', linestyle='--', label='Overall Average Predicted Bids')
@@ -501,8 +695,21 @@ class Training:
 
 
 if __name__ == "__main__":
+
+    ##ascii art
+    # Define the text you want to convert to ASCII art
+    text = "RIKIKI"
+    # Generate the ASCII art using the 'standard' font
+    ascii_art = create_ascii_art(text, font='standard')
+    # Define colors and style
+    fg_color = 'cyan'  # Foreground color
+    #bg_color = 'white'  # Background color
+    bold = True  # Make text bold
+    # Print the colored and styled ASCII art
+    print(colorize_text(ascii_art, fg_color, bold))
+
     #global parameters
-    NUMBER_GAMES = 2; TOTAL_ROUNDS=8 
+    NUMBER_GAMES = 1000; TOTAL_ROUNDS=8 
     # Create the 'outputs' folders
     image_output_dir = 'image_outputs'
     os.makedirs(image_output_dir, exist_ok=True)
@@ -531,6 +738,7 @@ if __name__ == "__main__":
     state_size = 3
     bid_model_weights = 'bid_model_outputs/model20240827_085917_300.pth'
     card_model_weights = 'play_model_outputs/model20240827_111253_500.pth'
+    manual_input = False #play manually 
 
     # Create game instance: initialises all attributes
     game = RikikiGame(num_players, ai_player_index, conservative_player_index, HUMAN_player_index, ALICE_player_index, starting_deck_size, TOTAL_ROUNDS) #only play rounds of 3 cards
@@ -538,7 +746,7 @@ if __name__ == "__main__":
     ai_agent = AIAgent(starting_deck_size, state_size, TOTAL_ROUNDS, bid_model_weights, card_model_weights)
 
     #start one game
-    trainer = Training(game, ai_agent, ai_player_index, ALICE_player_index, HUMAN_player_index)
+    trainer = Training(game, ai_agent, ai_player_index, ALICE_player_index, HUMAN_player_index, manual_input)
     trainer.trainer()
 
 

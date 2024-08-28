@@ -2,19 +2,29 @@ import csv
 from tabulate import tabulate
 from colorama import Fore, Style, init
 
-
-##Helper function for printing or storing info in CSV-files
+#Helper function for printing or storing info in CSV-files
 
 def store_score(score, actions, true_actions, CSV_FILE_PATH):
-    # Open the CSV file in append mode
+    """
+    Store the score and actions taken by the AI in a CSV file.
+
+    :param score: The score of the AI agent for the current round.
+    :param actions: List of actions taken by the AI during the game.
+    :param true_actions: List of the true actions or correct moves in the game.
+    :param CSV_FILE_PATH: Path to the CSV file where the data will be stored.
+    """
     with open(CSV_FILE_PATH, mode='a', newline='') as file:
         writer = csv.writer(file)
         # Write the score to the CSV file
         writer.writerow([score]+actions+ true_actions)
 
 def store_human_score(scorehuman, CSV_HUMAN_PATH):
-    print(f'Scorehuman: {scorehuman}')
-   
+    """
+    Store the human player's score in a CSV file.
+
+    :param scorehuman: The score of the human player for the current round.
+    :param CSV_HUMAN_PATH: Path to the CSV file where the data will be stored.
+    """
     # Convert the Tensor to a list or another iterable format
     if isinstance(scorehuman, (list, tuple)):
         score_to_write = scorehuman
@@ -23,11 +33,17 @@ def store_human_score(scorehuman, CSV_HUMAN_PATH):
         score_to_write = [scorehuman.item()] if hasattr(scorehuman, 'item') else [scorehuman]
     with open(CSV_HUMAN_PATH, mode='a', newline='') as file:
         writer = csv.writer(file)
-        # Write the score to the CSV file
         writer.writerow(score_to_write)
     
 
 def display_game_info(atout, bids_played_by_others, hand_of_human_player):
+    """
+    Display a table showing the current atout, bids played by other players, and the human player's hand.
+
+    :param atout: The current atout for the round.
+    :param bids_played_by_others: Bids made by other players.
+    :param hand_of_human_player: List of cards in the human player's hand.
+    """
     # Formatting the hand as a string
     hand_str = ", ".join([f"{card.value} of {card.suit}" for card in hand_of_human_player])
 
@@ -41,6 +57,16 @@ def display_game_info(atout, bids_played_by_others, hand_of_human_player):
     print(tabulate(table_data, headers=["", "Game information"], tablefmt="pretty"))
 
 def display_game_status(atout, trick_cards, hand_of_human_player, tricks_predicted, tricks_won):
+    """
+    Display a table showing the game status including atout, trick cards played, human player's hand, 
+    predicted tricks, and tricks won.
+
+    :param atout: The current atout (trump suit) for the round.
+    :param trick_cards: List of tuples containing cards played in the trick and the player role.
+    :param hand_of_human_player: List of cards in the human player's hand.
+    :param tricks_predicted: Number of tricks the human player predicted to win.
+    :param tricks_won: Number of tricks the human player has won so far.
+    """
     # Formatting the hand and trick cards as strings
     hand_str = ", ".join([f"{card.value} of {card.suit}" for card in hand_of_human_player])
     trick_cards_str = ", ".join([f"{card.value} of {card.suit} by {player}" for card, player in trick_cards])

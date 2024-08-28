@@ -19,6 +19,17 @@ suit_to_idx = {
 
 class Training:
     def __init__(self, game, ai_agent, ai_player_index, ALICE_player_index, HUMAN_player_index, manual_input):
+        """
+        Initializes the Training class with game, AI agent, player indices, and input mode.
+
+        Parameters:
+        - game: The game instance to be used for training.
+        - ai_agent: The AI agent that will be trained.
+        - ai_player_index: The index of the AI player.
+        - ALICE_player_index: The index of the ALICE player.
+        - HUMAN_player_index: The index of the human player.
+        - manual_input: Boolean indicating whether to use manual input for the human player.
+        """
         self.game = game
         self.ai_agent = ai_agent
         self.ai_player_index = ai_player_index
@@ -46,6 +57,9 @@ class Training:
     
 
     def bidding_phase(self):
+        """
+        Conducts the bidding phase where each player makes a bid in a round-robin fashion.
+        """
         starting_player = (self.game.starting_player + 1) % self.game.num_players #wrap the 4 players from 0-3. 
         for i in range(self.game.num_players):
             current_player = (starting_player + i) % self.game.num_players
@@ -53,6 +67,12 @@ class Training:
         self.counter_of_past_bidders = 0 #reinistialise the counter of bidders for next round
 
     def get_bid(self, player_num):
+        """
+        Determines the bid for a given player based on their role and current game state.
+
+        Parameters:
+        - player_num: The index of the player making the bid.
+        """
         total_bid_sum = sum(bid if bid is not None else 0 for bid in self.game.bids)
         self.counter_of_past_bidders += 1  # Increment counter
         num_players = self.game.num_players
@@ -165,6 +185,16 @@ class Training:
 
     #define winning card function
     def win_card(self, trick_cards, leading_suit):
+        """
+        Determines the winning card from a trick based on the leading suit and atout suit.
+
+        Parameters:
+        - trick_cards: List of tuples containing cards and their respective player roles.
+        - leading_suit: The suit that is leading in the current trick.
+
+        Returns:
+        - Tuple containing the winning card and its associated player role.
+        """
         # Separate cards into atout and leading suit groups
         atout_cards = [(card, player_role) for card, player_role in trick_cards if card.suit == self.game.atout.suit]
         leading_cards = [(card, player_role) for card, player_role in trick_cards if card.suit == leading_suit]
@@ -179,6 +209,16 @@ class Training:
         return winning_card, winning_player_role
 
     def det_play_reward(self, winnin_ply_role, input_tensor):
+        """
+        Determines the reward based on whether the AI player won the trick and its prediction.
+
+        Parameters:
+        - winnin_ply_role: The role of the player who won the trick.
+        - input_tensor: The tensor containing the trick details and predictions.
+
+        Returns:
+        - Reward value based on the outcome of the trick.
+        """
         trick_won = input_tensor[0, -2]        # Value from row 0, column -2
         trick_predicted = input_tensor[0, -1]  # Value from row 0, column -1
 
@@ -198,26 +238,53 @@ class Training:
         return reward
 
     def det_leading_suit_cards(self, leading_cards):
+        """
+        Determines the lowest and highest cards in the leading suit from the player's hand.
+
+        Parameters:
+        - leading_cards: List of cards in the leading suit.
+
+        Returns:
+        - Tuple containing the lowest and highest leading suit cards.
+        """
         print(f'Leading card in hand player: { leading_cards }')
         lowest_leading_suit_card = min(leading_cards, key=lambda x: x.custom_value)
         highest_leading_suit_card = max(leading_cards, key=lambda x: x.custom_value)
         return lowest_leading_suit_card, highest_leading_suit_card
     
     def det_posses_low_atout(self, hand):
-        #atout_in_hand = [at[0] for at in hand if at[0].suit == self.game.atout.suit]
+        """
+        Checks if the hand contains any atout cards with a value lower than 9.
+
+        Parameters:
+        - hand: List of cards in the player's hand.
+
+        Returns:
+        - Boolean indicating whether the player has low atout cards.
+        """
         atout_in_hand = [card for card in hand if card.suit == self.game.atout.suit]
         if len(atout_in_hand) > 0:
-            #check if you have any atout lower than 9 
             print(f'atout_in_hand {atout_in_hand}')
             if atout_in_hand:
-                low_atout = True
+                low_atout = True ####needs to be adapted to be lower than 9 
             else:
                 low_atout = False
         else:
             low_atout = False
+
         return low_atout
     
     def det_atout_cards(self, atout_cards, highest_atout_trick):
+        """
+        Determines the lowest, medium, and highest atout cards from a hand.
+
+        Parameters:
+        - atout_cards: List of atout cards in the player's hand.
+        - highest_atout_trick: The highest atout card played in the current trick.
+
+        Returns:
+        - Tuple containing the lowest, medium, and highest atout cards.
+        """
         lowest_atout_card = min(atout_cards, key=lambda x: x.custom_value)
         highest_atout_card = max(atout_cards, key=lambda x: x.custom_value)
         print(f'Hand {atout_cards}, highest_atout_trick: {highest_atout_trick}')
@@ -240,6 +307,15 @@ class Training:
         return lowest_atout_card, medium_atout_card, highest_atout_card, 
     
     def det_non_atout_cards(self, hand):
+        """
+        Determines the lowest and highest non-atout cards from a hand.
+
+        Parameters:
+        - hand: List of cards in the player's hand.
+
+        Returns:
+        - Tuple containing the lowest and highest non-atout cards. If there are no non-atout cards, returns None for both.
+        """
         non_atout_cards = [card for card in hand if card.suit != self.game.atout.suit]
         if len(non_atout_cards)>0:
             lowest_non_atout_card = min(non_atout_cards, key=lambda x: x.custom_value)
@@ -253,10 +329,19 @@ class Training:
 
 
     def play_all_tricks(self): #play all tricks in the current round
+        """
+        Plays all tricks in the current round of the game.
+        Iterates through the number of tricks based on the deck size and plays each trick.
+        """
         for _ in range(self.game.current_deck_size):
             self.play_trick()
 
     def play_trick(self):
+        """
+        Plays a single trick in the current round of the game.
+        Each player plays a card according to their role and the current state of the game.
+        Determines the winning card and updates the game state accordingly.
+        """
         trick_cards = []
         leading_suit = None
         for player_num in range(self.game.num_players):
@@ -518,6 +603,12 @@ class Training:
         
 
     def play_round(self, round_number):
+        """
+        Plays a round of the game based on the round number.
+
+        Parameters:
+        - round_number: Integer indicating the round number.
+        """
         self.game.current_deck_size = self.game.starting_deck_size + round_number ##added round number so from 0-8
         self.game.deal_cards(round_number)
         self.game.select_atout()
@@ -544,6 +635,12 @@ class Training:
 
     # Train the model 
     def trainer(self):
+        """
+        Trains the AI model by playing a specified number of games, recording the scores, and generating performance plots.
+
+        This method initializes game settings, plays a series of games, and records scores and actions for each game. 
+        It then saves these results to CSV files and generates plots to visualize the AI's performance.
+        """
         scores_after_each_game = []
         scores_human_after_each_game = []
         n_games_played = 0 #initialisation of game counter

@@ -14,12 +14,23 @@ suit_mapping = ["Diamonds", "Spades", "Hearts", "Clubs"]
 
 
 class CustomCard(pydealer.Card):
+    """
+    A custom card class that extends pydealer's Card to include a custom value.
+
+    :param number: The card's number (e.g., '2', '3', ... 'Ace').
+    :param suit: The card's suit (e.g., 'Diamonds', 'Spades', 'Hearts', 'Clubs').
+    :param custom_value: An optional custom value for the card. If not provided, the default value is used.
+    """
     def __init__(self, number, suit, custom_value=None):
         super().__init__(number, suit)
         self.custom_value = custom_value if custom_value is not None else self.default_value()
 
     def default_value(self):
-        # Define default values for cards if no custom value is provided
+        """
+        Define default values for cards if no custom value is provided.
+
+        :return: Default integer value of the card based on its value.
+        """
         value_map = {
             '2': 2, '3': 3, '4': 4, '5': 5, '6': 6,
             '7': 7, '8': 8, '9': 9, '10': 10,
@@ -27,8 +38,20 @@ class CustomCard(pydealer.Card):
         }
         return value_map.get(self.value, 0)
 
-
 class AIAgent:
+    """
+    An AI agent for playing and bidding in a card game using reinforcement learning models.
+
+    :param deck_size: The total number of cards in the deck.
+    :param state_size: The size of the state representation.
+    :param total_rounds: The number of rounds in the bidding phase.
+    :param bid_model_weights: Path to the weights file for the bidding model.
+    :param card_model_weights: Path to the weights file for the card selection model.
+    :param lr_bid: Learning rate for the bidding model.
+    :param lr_play: Learning rate for the card selection/playing  model.
+    :param epsilon: Exploration rate for the bidding model.
+    :param gamma: Discount factor for future rewards.
+    """
     def __init__(self, deck_size, state_size, total_rounds, bid_model_weights, card_model_weights, lr_bid, lr_play, epsilon=0.05, gamma=0.99):
         self.agent_state = None
         self.playing_state = None
@@ -57,11 +80,25 @@ class AIAgent:
         self.position_bidders = 0
 
     def load_weights(self, model, weight_path):
+        """
+        Load weights for a model from a specified file path.
+
+        :param model: The model to load weights into.
+        :param weight_path: Path to the weights file.
+        """
         model.load_state_dict(torch.load(weight_path))
         model.eval()  # Set the model to evaluation mode
     
     #create Mask function
     def create_mask(self, input_tensor, LD_condition, len_hand):
+        """
+        Create a mask to filter out invalid or irrelevant cards based on the condition.
+
+        :param input_tensor: Tensor containing card information.
+        :param LD_condition: Condition determining which cards to mask (e.g., leading suit).
+        :param len_hand: The length of the hand (number of cards).
+        :return: A mask tensor that highlights valid cards.
+        """
         # Select the first 17 columns corresponding to the card encoding (assuming card info is in the first 15 features)
         card_features = input_tensor[:8, :17]
         # Create a mask: rows with all 0s in the first 17 features should be masked
@@ -97,14 +134,11 @@ class AIAgent:
         Returns:
         - Card: The selected card with the highest probability.
         """
-
         max_value_index = output_tensor.argmax().item() 
 
         # Retrieve the corresponding row from the input tensor
         selected_row = input_tensor[max_value_index]
-        
-        # For demonstration purposes, assuming the row is a card
-        #print(f"For testing this is the selected row index: {max_value_index}")
+
         return selected_row, max_value_index
 
     def tensor_to_card(self, tensor_row):
@@ -130,6 +164,12 @@ class AIAgent:
     
     ##FUNCION 1: that interferes with the Rikiki_game
     def make_bid(self, x):
+        """
+        Decide on a bid based on the current state and exploration strategy.
+
+        :param x: Input tensor representing the state for bidding.
+        :return: The selected bid action.
+        """
         if self.position_bidders != 4:  # You are not last, you can bid whatever you want
 
             # In A low probability select randomly an action from the action_size 
@@ -152,9 +192,14 @@ class AIAgent:
     
     ##FUNCION 2: that interferes with the Rikiki_game
     def ai_choose_card(self, input_tensor, LD_condition, len_hand):
-        blue_text = "\033[34m"  # Blue text
-        reset_text = "\033[0m"  # Reset to default color
-        #print(f"{blue_text}LD_condition: {LD_condition}{reset_text}")
+        """
+        Choose a card based on the current state, leading suit condition, and hand length.
+
+        :param input_tensor: Tensor representing the current hand and game state.
+        :param LD_condition: Condition for the leading suit.
+        :param len_hand: Length of the hand.
+        :return: A tuple containing the selected CustomCard and its index.
+        """
         # Create the mask for nul vectors and if LD is active, masks non leading cards
         mask = self.create_mask(input_tensor, LD_condition, len_hand)
         # Call the forward function to get logits
@@ -168,8 +213,17 @@ class AIAgent:
         return selected_card, index_card
 
     
-    #UPDATE BID MODEL --> 
+    #UPDATE BID MODEL
     def update_bid_model(self, state, action, reward, next_state, done):
+        """
+        Update the bidding model based on experience using the Bellman equation.
+
+        :param state: Current state tensor.
+        :param action: Action taken.
+        :param reward: Reward received after taking the action.
+        :param next_state: Next state tensor.
+        :param done: Boolean indicating if the episode is done.
+        """
         # Compute the target
         with torch.no_grad():
             target = reward  #Basically the target is the value of that state plus expected value in future state
@@ -192,7 +246,15 @@ class AIAgent:
 
     #UPDATE PLAY MODEL
     def update_play_model(self, state, action, reward, next_state, done):
-        """Update the Q-values based on experience"""
+        """
+        Update the card selection model based on experience using the Bellman equation.
+
+        :param state: Current state tensor.
+        :param action: Action taken.
+        :param reward: Reward received after taking the action.
+        :param next_state: Next state tensor.
+        :param done: Boolean indicating if the episode is done.
+        """
         # Compute the target
         with torch.no_grad():
             target = reward  #Basically the target is the value of that state

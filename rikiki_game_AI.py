@@ -1,7 +1,7 @@
 import pydealer
+import torch
 from collections import defaultdict
 from tabulate import tabulate
-import torch
 
 value_to_idx = {
     '2': 0, '3': 1, '4': 2, '5': 3, '6': 4, '7': 5, '8': 6, 

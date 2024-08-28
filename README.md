@@ -5,6 +5,7 @@ This repository contains the implementation of an AI agent that plays Rikiki, a 
 ## Table of Contents
 
 - [Installation](#installation)
+- [Setup](#setup)
 - [Usage](#usage)
 - [Manual Play](#manual-play)
 - [Automatic Play](#automatic-play)
@@ -22,6 +23,23 @@ This repository contains the implementation of an AI agent that plays Rikiki, a 
     ```bash
     cd RL_rikiki
     ```
+## Setup
+
+To install all necessary dependencies, run the provided `setup.sh` script. This script installs all required Python packages listed in the `requirements.txt` file.
+
+1. Make the script executable (only needed once):
+
+    ```bash
+    chmod +x setup.sh
+    ```
+
+2. Run the setup script:
+
+    ```bash
+    ./setup.sh
+    ```
+
+This will install all required dependencies, including `torch`, `pydealer`, `tabulate`, `pyfiglet`, and `colorama`.
 
 ## Usage
 
@@ -32,7 +50,7 @@ To run the Rikiki game, you need to execute the `minimal_version.py` file. By de
 If you want to play Rikiki manually against the AI agent, follow these steps:
 
 1. Open the `minimal_version.py` file in your preferred text editor.
-2. Locate the `manual_input` variable (near the top of the file) and set it to `True`:
+2. Locate the `manual_input` variable (near the bottom of the file) and set it to `True`:
 
     ```python
     manual_input = True

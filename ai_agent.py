@@ -3,10 +3,11 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import random
+import pydealer
 from nn_model_bid import QNetwork
 from nn_model_play import CardSelectionNN
 from collections import deque
-import pydealer
+
 
 value_mapping = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "Jack", "Queen", "King", "Ace"]
 suit_mapping = ["Diamonds", "Spades", "Hearts", "Clubs"]

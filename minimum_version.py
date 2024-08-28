@@ -1,13 +1,13 @@
 #This is a minimum version 
+import torch
+import matplotlib.pyplot as plt
+import pandas as pd
+import os
 from ascii_art_utils import create_ascii_art, colorize_text
 from helper import store_score, store_human_score, display_game_info, display_game_status, print_table
 from rikiki_game_AI import RikikiGame
 from ai_agent import AIAgent
-import torch
-import matplotlib.pyplot as plt
 from collections import defaultdict
-import pandas as pd
-import os
 from datetime import datetime
 
 suit_to_idx = {

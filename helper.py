@@ -1,6 +1,7 @@
+import csv
 from tabulate import tabulate
 from colorama import Fore, Style, init
-import csv
+
 
 ##Helper function for printing or storing info in CSV-files
 

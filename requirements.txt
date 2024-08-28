@@ -1,0 +1,6 @@
+torch
+pydealer
+tabulate
+pyfiglet
+colorama
+

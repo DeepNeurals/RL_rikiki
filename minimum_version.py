@@ -1,17 +1,11 @@
 #This is a minimum version 
-
 from ascii_art_utils import create_ascii_art, colorize_text
 from helper import store_score, store_human_score, display_game_info, display_game_status, print_table
 from rikiki_game_AI import RikikiGame
 from ai_agent import AIAgent
 import torch
-import random
 import matplotlib.pyplot as plt
 from collections import defaultdict
-from tabulate import tabulate
-from colorama import Fore, Style, init
-# import numpy as np
-import csv
 import pandas as pd
 import os
 from datetime import datetime
@@ -44,7 +38,7 @@ class Training:
         self.list_of_actions = []
         self.list_actual = []
 
-        # #for Card NN update
+        #for Card NN update
         self.counter_played = 0
         self.AI_play_reward = 0
         self.old_input_tensor = torch.zeros(11,19)
@@ -56,16 +50,11 @@ class Training:
         for i in range(self.game.num_players):
             current_player = (starting_player + i) % self.game.num_players
             self.get_bid(current_player)
-        #reinistialise the counter of bidders for next round
-        self.counter_of_past_bidders = 0
+        self.counter_of_past_bidders = 0 #reinistialise the counter of bidders for next round
 
     def get_bid(self, player_num):
         total_bid_sum = sum(bid if bid is not None else 0 for bid in self.game.bids)
         self.counter_of_past_bidders += 1  # Increment counter
-        #role = game.get_player_role(player_num)
-        #print(f"{role} (Player {player_num + 1}), your hand:")
-        #for card in self.game.players[player_num]:
-            #print(card)
         num_players = self.game.num_players
 
         #Joe and Alice play 1 when possible:
@@ -95,17 +84,6 @@ class Training:
         #         else:
         #             bid = 0
         #             #print('Bidding zero works')
-
-        # # Bob (Liberal Player) 
-        # elif player_num == self.game.BOB_player_index:
-        #     print(f"Atout: {self.game.atout}")
-        #     print(f"Bids played by others: {self.game.bids}")
-        #     print(f"Hand of human player: {self.game.players[player_num]}")
-        #     # if self.counter_of_past_bidders == num_players:
-        #     #     bid = self.game.current_deck_size - total_bid_sum
-        #     #     #print(f'Bob bids {bid} as the last player')
-        #     # else:
-        #     #     bid = self.game.current_deck_size
             
         # HUMAN PLAYER
         elif player_num == self.HUMAN_player_index:
@@ -168,7 +146,7 @@ class Training:
 
             #Before bidding retrieve the states of the AI-player
             self.states = self.game.update_game_state(self.ai_player_index)
-            self.ai_agent.memory.append((self.state_old, self.AI_action, self.AI_reward, self.states, self.done))
+            #self.ai_agent.memory.append((self.state_old, self.AI_action, self.AI_reward, self.states, self.done))
 
             bid = self.ai_agent.make_bid(self.states) #in this function the forward pass happens
             #print('The AI agent made its choice', bid)
@@ -240,7 +218,6 @@ class Training:
         return low_atout
     
     def det_atout_cards(self, atout_cards, highest_atout_trick):
-        print("tetstt")
         lowest_atout_card = min(atout_cards, key=lambda x: x.custom_value)
         highest_atout_card = max(atout_cards, key=lambda x: x.custom_value)
         print(f'Hand {atout_cards}, highest_atout_trick: {highest_atout_trick}')
@@ -278,39 +255,13 @@ class Training:
     def play_all_tricks(self): #play all tricks in the current round
         for _ in range(self.game.current_deck_size):
             self.play_trick()
-            #print('-------------Trick Played-----------')
 
     def play_trick(self):
         trick_cards = []
         leading_suit = None
-
-        #for player in 4 players
-        #print("START TRICK")
-        #print(f"Atout: {self.game.atout}")
         for player_num in range(self.game.num_players):
-
-            #PlAYER SELLECTION
-            #print("PLAYER SELECTION")
-            #print('Player_num:', player_num)
             current_player = (self.game.starting_player + player_num) % self.game.num_players
-            #print('Current_player:', current_player)
             role = self.game.get_player_role(current_player)
-            #print('Role', role)
-
-            # #Playing strategy for all the players INCLUDING the AI player
-            # if leading_suit: 
-            #     leading_cards = [card for card in self.game.players[current_player] if card.suit == leading_suit]
-            #     if leading_cards: # Play the highest card of the leading suit that you have
-            #         card = max(leading_cards, key=lambda x: x.custom_value)
-            #     else: # No leading suit cards, check for atout cards
-            #         atout_cards = [card for card in self.game.players[current_player] if card.suit == self.game.atout.suit]
-            #         if atout_cards: # Play the highest atout card
-            #             card = max(atout_cards, key=lambda x: x.custom_value)
-            #         else: # Play the highest non-atout card
-            #             #print('TEST', self.game.players[current_player])
-            #             card = max(self.game.players[current_player], key=lambda x: x.custom_value)
-            # else: # No leading suit established, play the highest card available in your player' s deck
-            #     card = max(self.game.players[current_player], key=lambda x: x.custom_value)
 
             #For JOE and Alice bid automatically
             if current_player != self.ai_player_index and current_player != self.HUMAN_player_index:
@@ -324,13 +275,12 @@ class Training:
                         if atout_cards: # Play the highest atout card
                             card = max(atout_cards, key=lambda x: x.custom_value)
                         else: # Play the highest non-atout card
-                            #print('TEST', self.game.players[current_player])
                             card = max(self.game.players[current_player], key=lambda x: x.custom_value)
                 else: # No leading suit established, play the highest card available in your player' s deck
                     card = max(self.game.players[current_player], key=lambda x: x.custom_value)
             
             
-            # For human player bid manually
+            # For human player bid manually or automatically 
             elif current_player == self.HUMAN_player_index:
                 if len(self.game.players[current_player]) == 1:
                     idx_card = 0
@@ -340,8 +290,7 @@ class Training:
                     tricks_predicted_human = self.game.bids[self.HUMAN_player_index]
                     if self.manual_input == True:
                         display_game_status(self.game.atout, trick_cards, self.game.players[current_player], tricks_predicted_human, tricks_won_human)
-                        if leading_suit:
-                            #print(f"You entered leading suit")
+                        if leading_suit: #leading suit to respect
                             leading_cards = [card for card in self.game.players[current_player] if card.suit == leading_suit]
                             if leading_cards:
                                 print(f"You have to play a card of this leading suit: {leading_suit}")
@@ -403,9 +352,7 @@ class Training:
                             leading_cards = [card for card in self.game.players[current_player] if card.suit == leading_suit]
                             if leading_cards: #you have leading cards
                                 if len(leading_cards) >= 2: #you have multiple leading cards
-                                    print(f'cards in trick_cards: {trick_cards}')
                                     highest_leading_card_value = max(tc[0].value for tc in trick_cards if tc[0].suit == leading_suit)
-                                    print(f'highest_leading_card_value: {highest_leading_card_value}')
 
                                     # Check if the player has a card of the leading suit that is higher than the highest leading suit card in trick_cards
                                     higher_card_exists = any(card.suit == leading_suit and card.value > highest_leading_card_value 
@@ -415,19 +362,19 @@ class Training:
 
                                     #adapt playing strategy
                                     if higher_card_exists is True and tricks_won_human<tricks_predicted_human:
-                                        print('Play the higher leading suit card that you have')
+                                        #print('Play the higher leading suit card that you have')
                                         card = high_leading_suit_card
                                     elif higher_card_exists is True and tricks_won_human>=tricks_predicted_human:
-                                        print('Play the lower leading suit card to be sure not to win')
+                                        #print('Play the lower leading suit card to be sure not to win')
                                         card = low_leading_suit_card
                                     elif higher_card_exists is False and tricks_won_human>=tricks_predicted_human:
-                                        print('consume the highest leading suit card for safety')
+                                        #print('consume the highest leading suit card for safety')
                                         card = high_leading_suit_card
                                     elif higher_card_exists is False and tricks_won_human<tricks_predicted_human:
-                                        print('play lowest leading suit card in order to conserve the highest for next tricks')
+                                        #print('play lowest leading suit card in order to conserve the highest for next tricks')
                                         card = low_leading_suit_card
                                     else:
-                                        print('Play any leading card')
+                                        #print('Play any leading card')
                                         card = high_leading_suit_card
 
                                 else: #play the only leading card you have
@@ -435,23 +382,23 @@ class Training:
                                     card = max(leading_cards, key=lambda x: x.custom_value)
                             
                             else: #You have no leading card, play smart
-                                print(f'cards in trick_cards: {trick_cards}')
+                                #print(f'cards in trick_cards: {trick_cards}')
                                 atout_cards_trick = [tc[0] for tc in trick_cards if tc[0].suit == self.game.atout.suit]
-                                print(f'atout_cards_trick: {atout_cards_trick}')
+                                #print(f'atout_cards_trick: {atout_cards_trick}')
                                 if len(atout_cards_trick) == 0:
                                     highest_trick_atout_card = 0
                                 else: 
                                     highest_trick_atout_card = max(tc.custom_value for tc in atout_cards_trick if tc.suit == self.game.atout.suit)
 
-                                print(f'Highest trick atout card: {highest_trick_atout_card}')
+                                #print(f'Highest trick atout card: {highest_trick_atout_card}')
 
-                                print(f'Hand of human player: {self.game.players[current_player]}')
+                                #print(f'Hand of human player: {self.game.players[current_player]}')
                                 higher_atout_card_exists = any(card.suit == self.game.atout.suit and card.custom_value > highest_trick_atout_card 
                                                             for card in self.game.players[current_player])
-                                print(f'Value of highest atout card exists: {higher_atout_card_exists}')
+                                #print(f'Value of highest atout card exists: {higher_atout_card_exists}')
 
                                 atout_cards = [card for card in self.game.players[current_player] if card.suit == self.game.atout.suit]
-                                print(f'Atout cards before passing: {atout_cards}')
+                                #print(f'Atout cards before passing: {atout_cards}')
 
                                 if len(atout_cards) > 0: #more than one atout card
                                     lowest_atout_card, medium_atout_card, highest_atout_card = self.det_atout_cards(atout_cards, highest_trick_atout_card)
@@ -461,31 +408,31 @@ class Training:
                                 lowest_non_atout_card, highest_non_atout_card = self.det_non_atout_cards(self.game.players[current_player])
 
                                 if higher_atout_card_exists is True and tricks_won_human<tricks_predicted_human:
-                                    print(f'play higher atout_card (the highest you have)')
+                                    #print(f'play higher atout_card (the highest you have)')
                                     card = highest_atout_card
                                 elif higher_atout_card_exists is True and tricks_won_human>=tricks_predicted_human:
-                                    print(f'play an atout_card that is lower than the one played or a very high non-atout card')
+                                    #print(f'play an atout_card that is lower than the one played or a very high non-atout card')
                                     if medium_atout_card is not None:
                                         card = medium_atout_card
                                     else:
                                         if highest_non_atout_card is not None:
                                             card = highest_non_atout_card
                                         else:
-                                            print('Very unlikerly scenario, play lowest card in hand')
+                                            #print('Very unlikerly scenario, play lowest card in hand')
                                             card = min(self.game.players[current_player], key=lambda x: x.custom_value)
 
                                 elif higher_atout_card_exists is False and tricks_won_human>=tricks_predicted_human and highest_atout_card is not None:
-                                    print(f'play your highest atout card')
+                                    #print(f'play your highest atout card')
                                     card = highest_atout_card
                                 elif higher_atout_card_exists is False and tricks_won_human<tricks_predicted_human:
-                                    print('play lowest card that is not an atout card') 
+                                    #print('play lowest card that is not an atout card') 
                                     if lowest_non_atout_card is not None:
                                         card = lowest_non_atout_card
                                     else:
-                                        print('Play lowest atout card to preserve the others')
+                                        #print('Play lowest atout card to preserve the others')
                                         card = min(self.game.players[current_player], key=lambda x: x.custom_value)
                                 else:
-                                    print("CANNOT IMAGINE THE SCENARIO")
+                                    #print("CANNOT IMAGINE THE SCENARIO")
                                     card = min(self.game.players[current_player], key=lambda x: x.custom_value)
 
                         else: #You are first to play smart!
@@ -500,47 +447,39 @@ class Training:
                             lowest_non_atout_card, highest_non_atout_card = self.det_non_atout_cards(self.game.players[current_player])
 
                             if tricks_won_human<tricks_predicted_human and posses_low_atout is True:
-                                print(f'play low atout to force other players to spend their atouts')
+                                #print(f'play low atout to force other players to spend their atouts')
                                 card = lowest_atout_card
                             elif tricks_won_human<tricks_predicted_human and posses_low_atout is False:
-                                print(f'Play highest card you have that is not atout to make it a leading suit')
+                                #print(f'Play highest card you have that is not atout to make it a leading suit')
                                 card = lowest_non_atout_card
                             elif tricks_won_human>=tricks_predicted_human:
-                                print('Play lowest atout or non atout card that you have!')
+                                #print('Play lowest atout or non atout card that you have!')
                                 if posses_low_atout is True:
                                     card = lowest_atout_card
                                 else: 
                                     card = lowest_non_atout_card
                             else:
-                                print('Play any card you have')
+                                #print('Play any card you have')
                                 card = max(self.game.players[current_player], key=lambda x: x.custom_value)
                             
 
             #bid using inference for AI
             elif current_player == self.ai_player_index:
-                #print("HAND:", self.game.players[current_player])
                 hand = self.game.players[current_player]
                 len_hand = len(hand)
-                #Information prior to make choice
-                #print(f"trick_cards so far:{trick_cards}")
-                #pli/tricks wons and predicted
                 tricks_won  = self.game.pli_scores[self.ai_player_index]
                 tricks_predicted  = self.game.bids[self.ai_player_index]
-                #create the input tensor 
-                #print(f"Handsize: {len(hand)}")
                 input_tensor = self.game.process_hand(hand, trick_cards, tricks_won, tricks_predicted)
-                #print(f"\033[32minput_tensor is: {input_tensor}\033[0m")
 
                 #before choosing a card we update the model
                 if self.counter_played > 0: #do not update the first time 
-                    self.ai_agent.update_play_model(self.old_input_tensor, self.old_index_card_chosen, self.AI_play_reward, input_tensor, self.done) #state = input tensor, 
-                    #test of seeing if AI-reward can be shared
+                    self.ai_agent.update_play_model(self.old_input_tensor, self.old_index_card_chosen, self.AI_play_reward, input_tensor, self.done) 
                 
                 if leading_suit:
                     leading_cards = [card for card in self.game.players[current_player] if card.suit == leading_suit]
                     if leading_cards:
                         LD_condition = suit_to_idx[leading_suit] #create a Leading card condition to meet a Rikiki Rules
-                        card, idx_card = self.ai_agent.ai_choose_card(input_tensor, LD_condition, len_hand)  ##this function will provide the card to play
+                        card, idx_card = self.ai_agent.ai_choose_card(input_tensor, LD_condition, len_hand)  #this function will provide the card to play
                     else:
                         LD_condition = -1 #means there no condition
                         card, idx_card = self.ai_agent.ai_choose_card(input_tensor, LD_condition, len_hand) #the model understands only card index for update
@@ -558,29 +497,22 @@ class Training:
 
             ###COLLECT card played by the players 
             trick_cards.append((card, role))
-            #first player establishes leading suit
-            if not leading_suit:
+            if not leading_suit: #first player establishes leading suit
                 leading_suit = card.suit
-            #remove played card from player' s hand
-            #print(f"Players hand {self.game.players[current_player]}")
             print(f"Card player {role} wants to remove out of hand: {card}")
             self.game.players[current_player].remove(card)
-            #print what card was played by who
-            #print(f"{role} (Player {current_player + 1}) plays: {card}") ##commented out for efficiency
         
         #DETERMINING a Trick winner
         winning_card, winning_player_role = self.win_card(trick_cards, leading_suit)
-        self.AI_play_reward = self.det_play_reward(winning_player_role, self.old_input_tensor)
-
-        #winning_player_index = next(i for i, card_tuple in enumerate(trick_cards) if card_tuple == (winning_card, winning_player_role))
-        #print(f" {winning_player_role}  wins the trick with {winning_card}")   #COMMENTED OUT FOR EFFICEINCY
-        #print(f"\033[94mwinning_player_role: {winning_player_role}, with index number: {winning_player_index}\033[0m")
-        # Update the starting player to the winning player for the next trick
+        self.AI_play_reward = self.det_play_reward(winning_player_role, self.old_input_tensor) #reward for play model
 
         #HERE we need to transform role->index 
         winning_player_index = self.game.get_player_index(winning_player_role)
         print_table(self.game.atout, leading_suit, trick_cards, winning_player_role)
-        self.game.starting_player = (self.game.starting_player + winning_player_index) % self.game.num_players
+        print(f'winning player index: {winning_player_index}')
+        print(f'Starting player index before: {self.game.starting_player}')
+        self.game.starting_player = winning_player_index
+        print(f'Starting player index after: {self.game.starting_player}')
         self.game.pli_scores[winning_player_index] += 1
 
         
@@ -591,16 +523,14 @@ class Training:
         self.game.select_atout()
         self.bidding_phase() 
         self.play_all_tricks()  
-        self.game.calculate_scores(self.states, self.AI_action)   #here the round reward is calculated
-
-        #print the results
-        #self.game.print_scores()
-        self.game.print_overview_table() ## for efficiency commented this out
+        self.game.calculate_scores()   #here the round reward is calculated
+        #self.game.print_scores() #print the results
+        self.game.print_overview_table() 
 
         ###HERE WE STORE important variables for update after a full round 
         self.state_old = self.states
-        self.AI_action = self.AI_bid  #is good
-        self.AI_reward = self.game.rewards[3] #here we are gonna refer to a very small reward in function of how good it predicts
+        self.AI_action = self.AI_bid  
+        self.AI_reward = self.game.rewards[3] #here we have the reward for the bid model
         
         #you need to store here the true bids
         self.AI_actual = self.game.pli_scores[3]
@@ -609,14 +539,13 @@ class Training:
         self.game.reset_for_next_round() #--> end of round 
         self.game.pli_scores = defaultdict(int) #for next round
 
-
-
+        #shift the starting player with one at each round 
+        self.game.starting_player += 1
 
     # Train the model 
     def trainer(self):
         scores_after_each_game = []
         scores_human_after_each_game = []
-        #reward_after_each_round = []
         n_games_played = 0 #initialisation of game counter
 
         while n_games_played<NUMBER_GAMES: 
@@ -628,7 +557,6 @@ class Training:
                 self.play_round(round_number)
                 current_game_actions.append(self.AI_action)
                 true_game_actions.append(self.AI_actual)
-                #reward_after_each_round.append(self.AI_reward) #this creates a list of all rewards won during the round 
             
             #at the end of every game: --> store into csv file for efficiency
             print(f"AI player index: {self.game.scores[ai_player_index]}")
@@ -652,38 +580,32 @@ class Training:
         scores_human = pd.read_csv(CSV_HUMAN, header=None)
         scores_human_after_each_game = scores_human[0].tolist()
 
-
         # Separate predicted bids (columns 1 to 8) and true bids (columns 9 to 16)
         predicted_bids = scores_df.iloc[:, 1:9]
         true_bids = scores_df.iloc[:, 9:]
 
-        #SAVE THE MODEL
+        #SAVE THE MODELS- (Comment two lines below if you do not want to save!)
         #self.ai_agent.save_model(self.ai_agent.bid_model, model_filename)
         self.ai_agent.save_model(self.ai_agent.card_model, play_model_filename)
 
         #Game won vs game lost: (AI VS HUMAN)
-        won = 0
-        lost = 0
+        won = 0; lost = 0
         for ai_score, human_score in zip(scores_after_each_game, scores_human_after_each_game):
             if ai_score > human_score:
                 won += 1  # AI wins if its score is higher than the human's score
             else:
                 lost += 1  # AI loses if its score is less than or equal to the human's score
-        #won = sum(1 for x in scores_after_each_game if x > 0)
-        #lost = sum(1 for x in scores_after_each_game if x <= 0)
         labels = ['Won', 'Lost']
         sizes = [won, lost]
         
-        # Calculate the average predicted bids per round
+        # Calculate the average predicted/true bids per round
         average_predicted_bids = predicted_bids.mean(axis=0)
-        # Calculate the average true bids per round
         average_true_bids = true_bids.mean(axis=0)
-        # Calculate the overall average of predicted bids
+        # Calculate the overall average of predicted/true bids
         overall_average_predicted = predicted_bids.values.mean()
-        # Calculate the overall average of true bids
         overall_average_true = true_bids.values.mean()
 
-        #CREATE FUGURE single figure with three subplots
+        #CREATE FIGURE  with three subplots
         fig, axs = plt.subplots(3, 1, figsize=(12, 18))
 
         # First subplot: Rewards over Time
@@ -704,66 +626,57 @@ class Training:
         axs[2].set_ylabel('Average Bid')
         axs[2].legend()
         axs[2].set_title('Average Predicted Bids vs Average True Bids per Round')
-        #Save the plot to a file
-        plt.savefig(filename)
-        # Close the figure to avoid display in interactive environments
+        plt.savefig(filename) #Save the plot to a file
         plt.close()
         print(f"Plot saved as {filename}")
 
 
 if __name__ == "__main__":
-
-    ##ascii art
-    # Define the text you want to convert to ASCII art
+    # Game Title in ASCII art
     text = "RIKIKI"
-    # Generate the ASCII art using the 'standard' font
     ascii_art = create_ascii_art(text, font='standard')
-    # Define colors and style
     fg_color = 'cyan'  # Foreground color
-    #bg_color = 'white'  # Background color
     bold = True  # Make text bold
-    # Print the colored and styled ASCII art
-    print(colorize_text(ascii_art, fg_color, bold))
+    print(colorize_text(ascii_art, fg_color, bold)) # Print the colored and styled ASCII art
 
-    #global parameters
-    NUMBER_GAMES = 2000; TOTAL_ROUNDS=8 
-    # Create the 'outputs' folders
-    image_output_dir = 'image_outputs'
-    os.makedirs(image_output_dir, exist_ok=True)
-    csv_output_dir = 'csv_outputs'
-    os.makedirs(csv_output_dir, exist_ok=True)
-    play_model_output_dir = 'play_model_outputs'
-    os.makedirs(play_model_output_dir, exist_ok=True)
+    #Global parameters
+    NUMBER_GAMES = 300; TOTAL_ROUNDS=8  
+    #hyperparameters
+    lr_bid = 0.001
+    lr_play = 0.005
 
-    # Generate a timestamp for the filename
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    filename = f'{image_output_dir}/plot_{timestamp}.png'
-    CSV_FILE_PATH = f'{csv_output_dir}/scores{timestamp}.csv'
-    action_FILE_PATH = f'{csv_output_dir}/scores{timestamp}.csv'
-    CSV_HUMAN = f'{csv_output_dir}/human_scores{timestamp}.csv'
-    play_model_filename = f'{play_model_output_dir}/model{timestamp}_{NUMBER_GAMES}.pth'
-    
-    #game parameters 
-    num_players = 4  # Adjust as needed
+    #Game parameters
+    num_players = 4  
     #Starting Player's order
     conservative_player_index = 0  # The JOE first player is the conservative player
     HUMAN_player_index = 1 #Bob/HUMAN player is second to play
     ALICE_player_index = 2 # ALice is third to play
     ai_player_index = 3  # The last player is the AI agent
-
-    #we start with 2 cards in the hand
+    manual_input = False #play manually or not with human player
     starting_deck_size = 2
-    state_size = 3
+    state_size = 3 #bidmodel state size, reduced to 3 for faster computations
+
+    #Image/CSV related settings
+    image_output_dir = 'image_outputs' # Create the 'outputs' folders
+    os.makedirs(image_output_dir, exist_ok=True)
+    csv_output_dir = 'csv_outputs'
+    os.makedirs(csv_output_dir, exist_ok=True)
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f'{image_output_dir}/plot_{timestamp}.png'
+    CSV_FILE_PATH = f'{csv_output_dir}/scores{timestamp}.csv'
+    action_FILE_PATH = f'{csv_output_dir}/scores{timestamp}.csv'
+    CSV_HUMAN = f'{csv_output_dir}/human_scores{timestamp}.csv'
+
+    #Model related settings
+    play_model_output_dir = 'play_model_outputs'
+    os.makedirs(play_model_output_dir, exist_ok=True)
+    play_model_filename = f'{play_model_output_dir}/model{timestamp}_{NUMBER_GAMES}.pth'
     bid_model_weights = 'bid_model_outputs/model20240827_085917_300.pth'
     card_model_weights = 'play_model_outputs/model20240827_111253_500.pth'
-    manual_input = False #play manually 
 
-    # Create game instance: initialises all attributes
-    game = RikikiGame(num_players, ai_player_index, conservative_player_index, HUMAN_player_index, ALICE_player_index, starting_deck_size, TOTAL_ROUNDS) #only play rounds of 3 cards
-    # #create an ai_agent instance of class AIAgent
-    ai_agent = AIAgent(starting_deck_size, state_size, TOTAL_ROUNDS, bid_model_weights, card_model_weights)
-
-    #start one game
+    ##Instatiate game and agent
+    game = RikikiGame(num_players, ai_player_index, conservative_player_index, HUMAN_player_index, ALICE_player_index, starting_deck_size, TOTAL_ROUNDS) 
+    ai_agent = AIAgent(starting_deck_size, state_size, TOTAL_ROUNDS, bid_model_weights, card_model_weights, lr_bid, lr_play)
     trainer = Training(game, ai_agent, ai_player_index, ALICE_player_index, HUMAN_player_index, manual_input)
     trainer.trainer()
 

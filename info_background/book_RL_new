@@ -79,7 +79,12 @@ Onlyproblem: winning is defined as soring more than zero.
 
 Implementing this: /home/tdebacker/rl_snake/rikiki_ws/play_model_outputs/model20240827_111253_500.pth 
 
-/home/tdebacker/rl_snake/rikiki_ws/image_outputs/plot_20240828_182053.png -> we see it learns
+/home/tdebacker/rl_snake/rikiki_ws/image_outputs/plot_20240828_182053.png -> we see it learns, lr=0.001
+
+/home/tdebacker/rl_snake/rikiki_ws/image_outputs/plot_20240828_212048.png-> lr=0.05, much much faster
+
+/home/tdebacker/rl_snake/rikiki_ws/image_outputs/plot_20240828_212518.png-> lr=0.005, 100 games 
+I choose for .001, because otherwhise my computer freezes. 
 
 
 

@@ -1,10 +1,9 @@
-    
 from tabulate import tabulate
 from colorama import Fore, Style, init
-# import numpy as np
 import csv
 
-##Helper function 
+##Helper function for printing or storing info in CSV-files
+
 def store_score(score, actions, true_actions, CSV_FILE_PATH):
     # Open the CSV file in append mode
     with open(CSV_FILE_PATH, mode='a', newline='') as file:

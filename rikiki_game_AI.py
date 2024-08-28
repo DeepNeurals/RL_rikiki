@@ -1,8 +1,6 @@
 import pydealer
 from collections import defaultdict
 from tabulate import tabulate
-# import random
-# from ai_agent import AIAgent
 import torch
 
 value_to_idx = {
@@ -37,7 +35,6 @@ def create_custom_deck():
     return custom_deck
 
 custom_deck = create_custom_deck()
-
 
 class RikikiGame:
     def __init__(self, num_players, ai_player_index, conservative_player_index, HUMAN_player_index, ALICE_player_index, starting_deck_size, total_rounds):
@@ -76,9 +73,8 @@ class RikikiGame:
     
     def select_atout(self):
         self.atout = self.deck.deal(1)[0]
-        # print(f"Atout card: {self.atout}") 
 
-    #determine the winner of the pli in this trick based on: -leading suit & atout 
+    #determine the winner of the pli in this trick based on: leading suit & atout 
     def determine_winner(self, trick_cards, leading_suit):
         winning_card = None
         winning_player = None
@@ -103,13 +99,12 @@ class RikikiGame:
         return winning_card, winning_player
 
     #calculate the scores for the round: based on predicted pli_scores and actual
-    def calculate_scores(self, states, action):
+    def calculate_scores(self):
         for player_num in range(self.num_players):
             predicted = self.bids[player_num]
             actual = self.pli_scores[player_num]
             if predicted == actual: #if correct you win 5 points per correct predicted pli
                 self.consec_wins_bonus += 1 
-                #print(f'store the correct state-action pair in the memory of the model')
                 self.rewards[player_num] = max(5, 5 + (3* predicted)) + self.consec_wins_bonus*40 #5 for correct pli, and +3 per correctb pli. 
                 self.game_rewards[player_num] = max(5, 5 + (3* predicted))
                 self.scores[player_num] += self.game_rewards[player_num] 
@@ -118,12 +113,9 @@ class RikikiGame:
                 self.rewards[player_num] = -abs(predicted-actual)*2  # penalising the errors
                 self.game_rewards[player_num] = -abs(predicted-actual)*2
                 self.scores[player_num] += self.game_rewards[player_num]  
-                #print(f"Help what happened here: {self.scores[player_num]}")
-        #print(f"State of the AI-player: {states} and {action}")
         if  self.consec_wins_bonus > self.max_consec:
             self.max_consec = self.consec_wins_bonus
         
- 
     #reset deck and trick for next round
     def reset_for_next_round(self):
         self.deck = pydealer.Deck()
@@ -152,7 +144,6 @@ class RikikiGame:
             return self.ALICE_player_index
         else:
             return "Role not recognised"
-
 
     #printing function
     def print_scores(self):
@@ -192,9 +183,6 @@ class RikikiGame:
             if player_idx != player_index:
                 player_bid = self.bids[player_idx] if player_idx < len(self.bids) else 0
                 game_state[f"player_{player_idx + 1}_bid"] = player_bid
-        # Update the game state for the AI agent
-        #self.ai_agent.update_AI_game_state(game_state)
-        #print('states were updated in dict:', game_state)
     
         # Extract relevant game state information
         num_aces = game_state.get("num_aces_in_hand", 0)

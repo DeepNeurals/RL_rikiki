@@ -661,9 +661,16 @@ class Training:
         #self.ai_agent.save_model(self.ai_agent.bid_model, model_filename)
         self.ai_agent.save_model(self.ai_agent.card_model, play_model_filename)
 
-        #Game won vs game lost:
-        won = sum(1 for x in scores_after_each_game if x > 0)
-        lost = sum(1 for x in scores_after_each_game if x <= 0)
+        #Game won vs game lost: (AI VS HUMAN)
+        won = 0
+        lost = 0
+        for ai_score, human_score in zip(scores_after_each_game, scores_human_after_each_game):
+            if ai_score > human_score:
+                won += 1  # AI wins if its score is higher than the human's score
+            else:
+                lost += 1  # AI loses if its score is less than or equal to the human's score
+        #won = sum(1 for x in scores_after_each_game if x > 0)
+        #lost = sum(1 for x in scores_after_each_game if x <= 0)
         labels = ['Won', 'Lost']
         sizes = [won, lost]
         
@@ -719,7 +726,7 @@ if __name__ == "__main__":
     print(colorize_text(ascii_art, fg_color, bold))
 
     #global parameters
-    NUMBER_GAMES = 200; TOTAL_ROUNDS=8 
+    NUMBER_GAMES = 2000; TOTAL_ROUNDS=8 
     # Create the 'outputs' folders
     image_output_dir = 'image_outputs'
     os.makedirs(image_output_dir, exist_ok=True)

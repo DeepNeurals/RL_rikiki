@@ -12,6 +12,21 @@ def store_score(score, actions, true_actions, CSV_FILE_PATH):
         # Write the score to the CSV file
         writer.writerow([score]+actions+ true_actions)
 
+def store_human_score(scorehuman, CSV_HUMAN_PATH):
+    print(f'Scorehuman: {scorehuman}')
+   
+    # Convert the Tensor to a list or another iterable format
+    if isinstance(scorehuman, (list, tuple)):
+        score_to_write = scorehuman
+    else:
+        # Convert a scalar Tensor to a single-element list
+        score_to_write = [scorehuman.item()] if hasattr(scorehuman, 'item') else [scorehuman]
+    with open(CSV_HUMAN_PATH, mode='a', newline='') as file:
+        writer = csv.writer(file)
+        # Write the score to the CSV file
+        writer.writerow(score_to_write)
+    
+
 def display_game_info(atout, bids_played_by_others, hand_of_human_player):
     # Formatting the hand as a string
     hand_str = ", ".join([f"{card.value} of {card.suit}" for card in hand_of_human_player])

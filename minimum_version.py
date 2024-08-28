@@ -1,7 +1,7 @@
 #This is a minimum version 
 
 from ascii_art_utils import create_ascii_art, colorize_text
-from helper import store_score, display_game_info, display_game_status, print_table
+from helper import store_score, store_human_score, display_game_info, display_game_status, print_table
 from rikiki_game_AI import RikikiGame
 from ai_agent import AIAgent
 import torch
@@ -615,6 +615,7 @@ class Training:
     # Train the model 
     def trainer(self):
         scores_after_each_game = []
+        scores_human_after_each_game = []
         #reward_after_each_round = []
         n_games_played = 0 #initialisation of game counter
 
@@ -630,7 +631,10 @@ class Training:
                 #reward_after_each_round.append(self.AI_reward) #this creates a list of all rewards won during the round 
             
             #at the end of every game: --> store into csv file for efficiency
+            print(f"AI player index: {self.game.scores[ai_player_index]}")
+            print(f"AI player index: {self.game.scores[HUMAN_player_index]}")
             store_score(self.game.scores[ai_player_index], current_game_actions, true_game_actions, CSV_FILE_PATH)
+            store_human_score(self.game.scores[HUMAN_player_index], CSV_HUMAN)
             current_game_actions.clear()
             true_game_actions.clear()
             self.game.consec_wins_bonus = -1 
@@ -643,6 +647,11 @@ class Training:
         # Load scores from the CSV file
         scores_df = pd.read_csv(CSV_FILE_PATH, header=None)
         scores_after_each_game = scores_df[0].tolist()
+
+        # Load scores from the CSV file
+        scores_human = pd.read_csv(CSV_HUMAN, header=None)
+        scores_human_after_each_game = scores_human[0].tolist()
+
 
         # Separate predicted bids (columns 1 to 8) and true bids (columns 9 to 16)
         predicted_bids = scores_df.iloc[:, 1:9]
@@ -672,6 +681,7 @@ class Training:
 
         # First subplot: Rewards over Time
         axs[0].plot(scores_after_each_game,color='green', label='AI Game Reward')
+        axs[0].plot(scores_human_after_each_game,color='blue', label='Human player Game Reward')
         axs[0].set_xlabel('Game')
         axs[0].set_ylabel('Total Reward')
         axs[0].set_title('Rewards over Time')
@@ -687,7 +697,7 @@ class Training:
         axs[2].set_ylabel('Average Bid')
         axs[2].legend()
         axs[2].set_title('Average Predicted Bids vs Average True Bids per Round')
-        # Save the plot to a file
+        #Save the plot to a file
         plt.savefig(filename)
         # Close the figure to avoid display in interactive environments
         plt.close()
@@ -709,7 +719,7 @@ if __name__ == "__main__":
     print(colorize_text(ascii_art, fg_color, bold))
 
     #global parameters
-    NUMBER_GAMES = 1000; TOTAL_ROUNDS=8 
+    NUMBER_GAMES = 200; TOTAL_ROUNDS=8 
     # Create the 'outputs' folders
     image_output_dir = 'image_outputs'
     os.makedirs(image_output_dir, exist_ok=True)
@@ -723,6 +733,7 @@ if __name__ == "__main__":
     filename = f'{image_output_dir}/plot_{timestamp}.png'
     CSV_FILE_PATH = f'{csv_output_dir}/scores{timestamp}.csv'
     action_FILE_PATH = f'{csv_output_dir}/scores{timestamp}.csv'
+    CSV_HUMAN = f'{csv_output_dir}/human_scores{timestamp}.csv'
     play_model_filename = f'{play_model_output_dir}/model{timestamp}_{NUMBER_GAMES}.pth'
     
     #game parameters 

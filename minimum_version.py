@@ -599,7 +599,7 @@ class Training:
             trick_cards.append((card, role))
             if not leading_suit: #first player establishes leading suit
                 leading_suit = card.suit
-            print(f"Card player {role} wants to remove out of hand: {card}")
+            #print(f"Card player {role} wants to remove out of hand: {card}")
             self.game.players[current_player].remove(card)
         
         #DETERMINING a Trick winner
@@ -609,10 +609,10 @@ class Training:
         #HERE we need to transform role->index 
         winning_player_index = self.game.get_player_index(winning_player_role)
         print_table(self.game.atout, leading_suit, trick_cards, winning_player_role)
-        print(f'winning player index: {winning_player_index}')
-        print(f'Starting player index before: {self.game.starting_player}')
+        #print(f'winning player index: {winning_player_index}')
+        #print(f'Starting player index before: {self.game.starting_player}')
         self.game.starting_player = winning_player_index
-        print(f'Starting player index after: {self.game.starting_player}')
+        #print(f'Starting player index after: {self.game.starting_player}')
         self.game.pli_scores[winning_player_index] += 1
 
         
@@ -752,10 +752,12 @@ if __name__ == "__main__":
     print(colorize_text(ascii_art, fg_color, bold)) # Print the colored and styled ASCII art
 
     #Global parameters
-    NUMBER_GAMES = 300; TOTAL_ROUNDS=8  
+    NUMBER_GAMES = 160; TOTAL_ROUNDS=8  
     #hyperparameters
     lr_bid = 0.001
     lr_play = 0.005
+    gamma = 0.99 #0.30 #0.99
+    epsilon = 0.2
 
     #Game parameters
     num_players = 4  
@@ -788,7 +790,7 @@ if __name__ == "__main__":
 
     ##Instatiate game and agent
     game = RikikiGame(num_players, ai_player_index, conservative_player_index, HUMAN_player_index, ALICE_player_index, starting_deck_size, TOTAL_ROUNDS) 
-    ai_agent = AIAgent(starting_deck_size, state_size, TOTAL_ROUNDS, bid_model_weights, card_model_weights, lr_bid, lr_play)
+    ai_agent = AIAgent(starting_deck_size, state_size, TOTAL_ROUNDS, bid_model_weights, card_model_weights, lr_bid, lr_play, epsilon, gamma)
     trainer = Training(game, ai_agent, ai_player_index, ALICE_player_index, HUMAN_player_index, manual_input)
     trainer.trainer()
 
